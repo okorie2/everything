@@ -1,20 +1,40 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import CalculatorScreen from "./src/screens/calculatorScreen";
 import AccountScreen from "./src/screens/accountScreen";
-import LoginScreen from "./src/screens/loginScreen";
+import LoginScreen from "./src/screens/authentication/loginScreen";
+import LandingPage from "./src/screens/landingScreen";
+import HomeScreen from "./src/screens/home";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getLocalData, deleteData } from "./src/util/localStorage";
 import { NavigationContainer } from "@react-navigation/native";
 import TicTacToeScreen from "./src/screens/games/tictactoe";
 import RockPaperScissorsScreen from "./src/screens/games/rockPaperScissors";
-import GamesScreen from "./src/screens/games";   
+import GamesScreen from "./src/screens/games";
 import NotesScreenContainer from "./src/screens/notesScreen";
+import RegistrationScreen from "./src/screens/authentication/register";
+import EmailVerificationScreen from "./src/screens/authentication/verifyEmail";
+import ForgotPasswordScreen from "./src/screens/authentication/forgotPasswordScreen";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./backend/firebase";
+
+// Placeholder screens (to be replaced with actual implementations)
+const CalendarScreen = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 20 }}>Calendar Screen</Text>
+  </View>
+);
+
+const ChatScreen = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 20 }}>Chat Screen</Text>
+  </View>
+);
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const BethelTab = createBottomTabNavigator();
 
 const GamesStack = createNativeStackNavigator();
 
@@ -22,30 +42,26 @@ const GamesStack = createNativeStackNavigator();
 const GamesNavigator = () => {
   return (
     <GamesStack.Navigator>
-      <GamesStack.Screen 
-        name="Games" 
-        component={GamesScreen} 
+      <GamesStack.Screen
+        name="Games"
+        component={GamesScreen}
         options={{ headerShown: false }}
       />
-      <GamesStack.Screen 
-        name="TicTacToe" 
+      <GamesStack.Screen
+        name="TicTacToe"
         component={TicTacToeScreen}
         options={{ title: "Tic Tac Toe" }}
       />
-      <GamesStack.Screen 
-        name="RockPaperScissors" 
+      <GamesStack.Screen
+        name="RockPaperScissors"
         component={RockPaperScissorsScreen}
         options={{ title: "Rock Paper Scissors" }}
       />
-      {/* <GamesStack.Screen 
-        name="DiceRolling" 
-        component={DiceRollingScreen}
-        options={{ title: "Dice Rolling" }}
-      /> */}
     </GamesStack.Navigator>
   );
 };
 
+// Original tab navigator
 const TabNavs = () => {
   return (
     <Tab.Navigator>
@@ -67,7 +83,7 @@ const TabNavs = () => {
           ),
         }}
       />
-   <Tab.Screen
+      <Tab.Screen
         name="Notes"
         component={NotesScreenContainer}
         options={{
@@ -81,7 +97,11 @@ const TabNavs = () => {
         component={GamesNavigator}
         options={{
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="gamepad-variant" color={color} size={26} />
+            <MaterialCommunityIcons
+              name="gamepad-variant"
+              color={color}
+              size={26}
+            />
           ),
         }}
       />
@@ -89,55 +109,130 @@ const TabNavs = () => {
   );
 };
 
-export default function App() {
-  // deleteData("username")
+// Bethel Navigator - new tab navigator with Home, Calendar, Chat, and Profile
+const BethelNavigator = () => {
+  return (
+    <BethelTab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#FF8008',
+        tabBarStyle: {
+          borderTopWidth: 0,
+          elevation: 10,
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+        }
+      }}
+    >
+      <BethelTab.Screen
+        name="HomeTab"
+        component={HomeScreen}
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="home" color={color} size={26} />
+          ),
+          headerShown: false,
+        }}
+      />
+      <BethelTab.Screen
+        name="CalendarTab"
+        component={CalendarScreen}
+        options={{
+          title: "Calendar",
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="calendar" color={color} size={26} />
+          ),
+        }}
+      />
+      <BethelTab.Screen
+        name="ChatTab"
+        component={ChatScreen}
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="chat" color={color} size={26} />
+          ),
+        }}
+      />
+      <BethelTab.Screen
+        name="ProfileTab"
+        component={AccountScreen}
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="account" color={color} size={26} />
+          ),
+        }}
+      />
+    </BethelTab.Navigator>
+  );
+};
 
-  const user = getLocalData("username");
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [userD, setUserD] = React.useState({ isLoggedIn: false, username: "" });
+// Auth Navigator component - handles public routes
+const AuthNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Landing" component={LandingPage} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegistrationScreen} />
+      <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+    </Stack.Navigator>
+  );
+};
 
-  React.useEffect(() => {
-    const checkLoginStatus = async () => {
-      try {
-        const userData = await getLocalData("username");
-        console.log("checking login status", userData?.isLoggedin);
-        setIsLoggedIn(userData?.isLoggedin || false);
-        setUserD(userData);
-      } catch (error) {
-        console.error("Error checking login status", error);
-        setIsLoggedIn(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+// App Navigator component - handles private routes
+const AppNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen 
+        name="Home" 
+        component={BethelNavigator} 
+      />
+      <Stack.Screen 
+        name="Main" 
+        component={TabNavs} 
+      />
+    </Stack.Navigator>
+  );
+};
 
-    checkLoginStatus();
+// Root Navigator - checks auth status and routes accordingly
+const RootNavigator = () => {
+const [currentUser, setCurrentUser] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const isAuthenticated = !!currentUser;
+    React.useEffect(() => {
+    // Subscribe to auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setLoading(false);
+    });
+
+    // Cleanup subscription
+    return unsubscribe;
   }, []);
-
-  // Show a loading screen or return null while checking login status
-  if (isLoading) {
-    return (
-      <View>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-
   return (
     <NavigationContainer>
-     
-        <Stack.Navigator>
-    
-          <Stack.Screen name="Login" component={LoginScreen} />
-  
-          <Stack.Screen
-            name="Main"
-            component={TabNavs}
-            options={{ headerShown: false }}
-          />
-        </Stack.Navigator>
- 
+      {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
+};
+
+export default function App() {
+  return (
+      <RootNavigator />
+
+  );
 }
+
+// const styles = StyleSheet.create({
+//   loadingContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     backgroundColor: '#fff'
+//   }
+// });

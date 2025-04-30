@@ -18,16 +18,19 @@ import EmailVerificationScreen from "./src/screens/authentication/verifyEmail";
 import ForgotPasswordScreen from "./src/screens/authentication/forgotPasswordScreen";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./backend/firebase";
+import RegisterBusinessScreen from "./src/screens/places/business/RegisterBusinessScreen"; // adjust if needed
+import BusinessDetailScreen from "./src/screens/places/business/BusinessDetailScreen";
 
+import BusinessListScreen from "./src/screens/places/BusinessListScreen"; // adjust if needed
 // Placeholder screens (to be replaced with actual implementations)
 const CalendarScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
     <Text style={{ fontSize: 20 }}>Calendar Screen</Text>
   </View>
 );
 
 const ChatScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
     <Text style={{ fontSize: 20 }}>Chat Screen</Text>
   </View>
 );
@@ -114,15 +117,15 @@ const BethelNavigator = () => {
   return (
     <BethelTab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#FF8008',
+        tabBarActiveTintColor: "#FF8008",
         tabBarStyle: {
           borderTopWidth: 0,
           elevation: 10,
           shadowOpacity: 0.1,
           shadowRadius: 4,
-          shadowColor: '#000',
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: -4 },
-        }
+        },
       }}
     >
       <BethelTab.Screen
@@ -177,7 +180,10 @@ const AuthNavigator = () => {
       <Stack.Screen name="Landing" component={LandingPage} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegistrationScreen} />
-      <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+      <Stack.Screen
+        name="EmailVerification"
+        component={EmailVerificationScreen}
+      />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </Stack.Navigator>
   );
@@ -187,24 +193,24 @@ const AuthNavigator = () => {
 const AppNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen 
-        name="Home" 
-        component={BethelNavigator} 
+      <Stack.Screen name="Home" component={BethelNavigator} />
+      <Stack.Screen name="Main" component={TabNavs} />
+      <Stack.Screen
+        name="RegisterBusiness"
+        component={RegisterBusinessScreen}
       />
-      <Stack.Screen 
-        name="Main" 
-        component={TabNavs} 
-      />
+      <Stack.Screen name="BusinessList" component={BusinessListScreen} />
+      <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
     </Stack.Navigator>
   );
 };
 
 // Root Navigator - checks auth status and routes accordingly
 const RootNavigator = () => {
-const [currentUser, setCurrentUser] = React.useState(null);
+  const [currentUser, setCurrentUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const isAuthenticated = !!currentUser;
-    React.useEffect(() => {
+  React.useEffect(() => {
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -222,10 +228,7 @@ const [currentUser, setCurrentUser] = React.useState(null);
 };
 
 export default function App() {
-  return (
-      <RootNavigator />
-
-  );
+  return <RootNavigator />;
 }
 
 // const styles = StyleSheet.create({

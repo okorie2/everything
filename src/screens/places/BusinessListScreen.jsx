@@ -15,9 +15,10 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../../backend/firebase"; // adjust path
 import { Ionicons } from "@expo/vector-icons"; // Make sure to install expo/vector-icons
+import { getAuth } from "firebase/auth";
 
 const { width } = Dimensions.get("window");
 
@@ -40,22 +41,45 @@ const BusinessListScreen = ({ navigation }) => {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
 
-  const fetchBusinesses = async () => {
+  const auth = getAuth();
+
+  const fetchBusinesses = useCallback(async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "businesses"));
-      const list = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      setLoading(true);
+      const uid = getAuth().currentUser?.uid || "";
+
+      // 1) All approved businesses
+      const approvedQ = query(
+        collection(db, "businesses"),
+        where("status", "==", "approved")
+      );
+      const approvedSnap = await getDocs(approvedQ);
+      const approved = approvedSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       }));
-      setBusinesses(list);
-      setFiltered(list);
+
+      // 2) My own businesses (pending or approved)
+      let mine = [];
+      if (uid) {
+        const mineQ = query(
+          collection(db, "businesses"),
+          where("owner_id", "==", uid)
+        );
+        const mineSnap = await getDocs(mineQ);
+        mine = mineSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
+
+      // 3) Merge & set state
+      const merged = [...approved, ...mine];
+      setBusinesses(merged);
+      setFiltered(merged);
     } catch (err) {
-      console.error("Error fetching businesses:", err);
+      console.error("BUSINESS QUERY ERROR →", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBusinesses();

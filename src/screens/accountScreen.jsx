@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,119 +10,133 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+  Platform,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../backend/firebase";
-import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../backend/firebase';
+import { signOut } from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { db } from "../../backend/firebase";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const ProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [userData, setUserData] = useState({
-    firstName: '',
-    lastName: '',
-    age: '',
-    relationship: '',
-    phone_number: '',
-    address: '',
-    email: ''
+    firstName: "",
+    lastName: "",
+    age: "",
+    relationship: "",
+    phone_number: "",
+    address: "",
+    email: "",
   });
   const [jobs, setJobs] = useState([]);
   const [appointments, setAppointments] = useState([]);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          navigation.replace('Login');
-          return;
-        }
-
-        // Get user profile data from Firestore
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserData({
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            age: data.age ? data.age.toString() : '',
-            relationship: data.relationship || '',
-            phone_number: data.phone_number ? data.phone_number.toString() : '',
-            address: data.address || '',
-            email: currentUser.email || ''
-          });
-        } else {
-          // Initialize with just email if no profile exists yet
-          setUserData(prev => ({
-            ...prev,
-            email: currentUser.email || ''
-          }));
-        }
-
-        // Fetch user's jobs
-        const jobsQuery = query(
-          collection(db, 'jobs'),
-          where('userId', '==', currentUser.uid)
-        );
-        const jobsSnapshot = await getDocs(jobsQuery);
-        const jobsList = jobsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setJobs(jobsList);
-
-        // Fetch user's appointments
-        const appointmentsQuery = query(
-          collection(db, 'appointments'),
-          where('userId', '==', currentUser.uid)
-        );
-        const appointmentsSnapshot = await getDocs(appointmentsQuery);
-        const appointmentsList = appointmentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        // Sort appointments by date (upcoming first)
-        appointmentsList.sort((a, b) => {
-          const dateA = new Date(a.date);
-          const dateB = new Date(b.date);
-          return dateA - dateB;
-        });
-        
-        setAppointments(appointmentsList);
-        
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        Alert.alert('Error', 'Failed to load profile data');
-      } finally {
-        setLoading(false);
+  const fetchUserData = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        navigation.replace("Login");
+        return;
       }
-    };
 
+      // Get user profile data from Firestore
+      const userDocRef = doc(db, "user", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserData({
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          age: data.age ? data.age.toString() : "",
+          relationship: data.relationship || "",
+          phone_number: data.phone_number ? data.phone_number.toString() : "",
+          address: data.address || "",
+          email: currentUser.email || "",
+        });
+      } else {
+        // Initialize with just email if no profile exists yet
+        setUserData((prev) => ({
+          ...prev,
+          email: currentUser.email || "",
+        }));
+      }
+
+      // Fetch user's jobs
+      const jobsQuery = query(
+        collection(db, "jobs"),
+        where("userId", "==", currentUser.uid)
+      );
+      const jobsSnapshot = await getDocs(jobsQuery);
+      const jobsList = jobsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setJobs(jobsList);
+
+      // Fetch user's appointments
+      const appointmentsQuery = query(
+        collection(db, "appointments"),
+        where("userId", "==", currentUser.uid)
+      );
+      const appointmentsSnapshot = await getDocs(appointmentsQuery);
+      const appointmentsList = appointmentsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Sort appointments by date (upcoming first)
+      appointmentsList.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateA - dateB;
+      });
+
+      setAppointments(appointmentsList);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      Alert.alert("Error", "Failed to load profile data");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
     fetchUserData();
+  }, [navigation]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      // Fetch user data when the screen is focused
+      fetchUserData();
+    });
+    return unsubscribe;
   }, [navigation]);
 
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
       const currentUser = auth.currentUser;
-      
+
       if (!currentUser) {
-        Alert.alert('Error', 'User not authenticated');
+        Alert.alert("Error", "User not authenticated");
         return;
       }
 
       // Validate data
       if (!userData.firstName || !userData.lastName) {
-        Alert.alert('Error', 'First name and last name are required');
+        Alert.alert("Error", "First name and last name are required");
         setLoading(false);
         return;
       }
@@ -131,18 +145,20 @@ const ProfileScreen = ({ navigation }) => {
       const formattedData = {
         ...userData,
         age: userData.age ? parseInt(userData.age, 10) : null,
-        phone_number: userData.phone_number ? parseInt(userData.phone_number, 10) : null
+        phone_number: userData.phone_number
+          ? parseInt(userData.phone_number, 10)
+          : null,
       };
 
       // Update user document in Firestore
-      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, formattedData);
 
       setEditing(false);
-      Alert.alert('Success', 'Profile updated successfully');
+      Alert.alert("Success", "Profile updated successfully");
     } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile');
+      console.error("Error updating profile:", error);
+      Alert.alert("Error", "Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -151,21 +167,21 @@ const ProfileScreen = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.replace('Login');
+      navigation.replace("Login");
     } catch (error) {
-      console.error('Error signing out:', error);
-      Alert.alert('Error', 'Failed to sign out');
+      console.error("Error signing out:", error);
+      Alert.alert("Error", "Failed to sign out");
     }
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -179,7 +195,7 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
       <View style={styles.header}>
@@ -210,7 +226,9 @@ const ProfileScreen = ({ navigation }) => {
             <TextInput
               style={[styles.input, !editing && styles.disabledInput]}
               value={userData.firstName}
-              onChangeText={(text) => setUserData({...userData, firstName: text})}
+              onChangeText={(text) =>
+                setUserData({ ...userData, firstName: text })
+              }
               editable={editing}
               placeholder="Enter first name"
             />
@@ -221,7 +239,9 @@ const ProfileScreen = ({ navigation }) => {
             <TextInput
               style={[styles.input, !editing && styles.disabledInput]}
               value={userData.lastName}
-              onChangeText={(text) => setUserData({...userData, lastName: text})}
+              onChangeText={(text) =>
+                setUserData({ ...userData, lastName: text })
+              }
               editable={editing}
               placeholder="Enter last name"
             />
@@ -232,7 +252,7 @@ const ProfileScreen = ({ navigation }) => {
             <TextInput
               style={[styles.input, !editing && styles.disabledInput]}
               value={userData.age}
-              onChangeText={(text) => setUserData({...userData, age: text})}
+              onChangeText={(text) => setUserData({ ...userData, age: text })}
               editable={editing}
               placeholder="Enter age"
               keyboardType="numeric"
@@ -244,7 +264,9 @@ const ProfileScreen = ({ navigation }) => {
             <TextInput
               style={[styles.input, !editing && styles.disabledInput]}
               value={userData.relationship}
-              onChangeText={(text) => setUserData({...userData, relationship: text})}
+              onChangeText={(text) =>
+                setUserData({ ...userData, relationship: text })
+              }
               editable={editing}
               placeholder="Enter relationship status"
             />
@@ -255,7 +277,9 @@ const ProfileScreen = ({ navigation }) => {
             <TextInput
               style={[styles.input, !editing && styles.disabledInput]}
               value={userData.phone_number}
-              onChangeText={(text) => setUserData({...userData, phone_number: text})}
+              onChangeText={(text) =>
+                setUserData({ ...userData, phone_number: text })
+              }
               editable={editing}
               placeholder="Enter phone number"
               keyboardType="phone-pad"
@@ -267,7 +291,9 @@ const ProfileScreen = ({ navigation }) => {
             <TextInput
               style={[styles.input, !editing && styles.disabledInput]}
               value={userData.address}
-              onChangeText={(text) => setUserData({...userData, address: text})}
+              onChangeText={(text) =>
+                setUserData({ ...userData, address: text })
+              }
               editable={editing}
               placeholder="Enter address"
               multiline
@@ -285,7 +311,10 @@ const ProfileScreen = ({ navigation }) => {
           </View>
 
           {editing && (
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSaveProfile}
+            >
               <Text style={styles.saveButtonText}>Save Changes</Text>
             </TouchableOpacity>
           )}
@@ -299,7 +328,9 @@ const ProfileScreen = ({ navigation }) => {
                 <Text style={styles.cardTitle}>{job.title}</Text>
                 <Text style={styles.cardSubtitle}>{job.company}</Text>
                 <Text>{job.description}</Text>
-                <Text style={styles.cardDate}>Started: {formatDate(job.startDate)}</Text>
+                <Text style={styles.cardDate}>
+                  Started: {formatDate(job.startDate)}
+                </Text>
               </View>
             ))
           ) : (
@@ -314,7 +345,9 @@ const ProfileScreen = ({ navigation }) => {
               <View key={appointment.id} style={styles.card}>
                 <Text style={styles.cardTitle}>{appointment.title}</Text>
                 <Text style={styles.cardSubtitle}>{appointment.type}</Text>
-                <Text style={styles.cardDate}>{formatDate(appointment.date)}</Text>
+                <Text style={styles.cardDate}>
+                  {formatDate(appointment.date)}
+                </Text>
                 <Text>{appointment.notes}</Text>
               </View>
             ))
@@ -330,34 +363,34 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
   },
   header: {
     height: height * 0.15,
-    backgroundColor: '#FF8C00',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: "#FF8C00",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: height * 0.05,
     paddingHorizontal: 20,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   headerTitle: {
-    color: 'white',
+    color: "white",
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   logoutText: {
-    color: 'white',
+    color: "white",
     marginLeft: 5,
   },
   contentContainer: {
@@ -365,10 +398,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   profileSection: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
@@ -376,14 +409,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
   },
   formGroup: {
@@ -391,38 +424,38 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 5,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 5,
     padding: 10,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   disabledInput: {
-    backgroundColor: '#f5f5f5',
-    color: '#666',
+    backgroundColor: "#f5f5f5",
+    color: "#666",
   },
   saveButton: {
-    backgroundColor: '#FF8C00',
+    backgroundColor: "#FF8C00",
     padding: 15,
     borderRadius: 5,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
   },
   saveButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 16,
   },
   sectionContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
@@ -431,29 +464,29 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: "#eee",
     borderRadius: 5,
     padding: 15,
     marginBottom: 10,
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 5,
   },
   cardDate: {
     fontSize: 14,
-    color: '#FF8C00',
+    color: "#FF8C00",
     marginVertical: 5,
   },
   emptyStateText: {
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
+    color: "#999",
+    fontStyle: "italic",
+    textAlign: "center",
     padding: 20,
   },
 });

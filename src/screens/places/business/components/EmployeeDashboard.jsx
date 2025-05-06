@@ -369,7 +369,7 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
   const EmptyListComponent = () => (
     <View style={styles.emptyContainer}>
       <Image
-        source={require("../../../../../assets/empty-tasks.png")}
+        source={require("../../../../../assets/empty.gif")}
         style={styles.emptyImage}
         resizeMode="contain"
       />

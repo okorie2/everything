@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  ScrollView,
 } from "react-native";
 import {
   collection,
@@ -20,6 +21,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../../../backend/firebase"; // Adjust the import path as necessary
 import DropDownPicker from "react-native-dropdown-picker";
+import ManageEmployees from "./ManageEmployees";
 
 const OwnerDashboard = ({ business, currentUser }) => {
   const [taskForm, setTaskForm] = useState({
@@ -141,86 +143,106 @@ const OwnerDashboard = ({ business, currentUser }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Welcome, Business Owner</Text>
-      <Text style={styles.subHeader}>{business.name}</Text>
-      <Text style={styles.label}>Create New Task</Text>
+    <ScrollView
+      style={{
+        flex: 1,
+        backgroundColor: "#fff",
+      }}
+    >
+      <View style={styles.container}>
+        <Text style={styles.header}>Welcome, Business Owner</Text>
+        <Text style={styles.subHeader}>{business.name}</Text>
+        <Text style={styles.label}>Create New Task</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Title"
-        value={taskForm.title}
-        onChangeText={(text) => setTaskForm({ ...taskForm, title: text })}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Description"
-        value={taskForm.description}
-        onChangeText={(text) => setTaskForm({ ...taskForm, description: text })}
-      />
-      <Text style={styles.label}>Assign to</Text>
-      <DropDownPicker
-        open={employeeDropdownOpen}
-        setOpen={setEmployeeDropdownOpen}
-        items={employeeItems}
-        setItems={setEmployeeItems}
-        value={selectedEmployees}
-        setValue={setSelectedEmployees}
-        multiple={true}
-        placeholder="Select employees"
-        style={styles.dropdown}
-        badgeColors={["#1a2a6c"]}
-        badgeTextStyle={{ color: "#fff" }}
-        dropDownContainerStyle={{ borderColor: "#ccc" }}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Title"
+          value={taskForm.title}
+          onChangeText={(text) => setTaskForm({ ...taskForm, title: text })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Description"
+          value={taskForm.description}
+          onChangeText={(text) =>
+            setTaskForm({ ...taskForm, description: text })
+          }
+        />
+        <Text style={styles.label}>Assign to</Text>
+        <DropDownPicker
+          open={employeeDropdownOpen}
+          setOpen={setEmployeeDropdownOpen}
+          items={employeeItems}
+          setItems={setEmployeeItems}
+          value={selectedEmployees}
+          setValue={setSelectedEmployees}
+          multiple={true}
+          placeholder="Select employees"
+          style={styles.dropdown}
+          badgeColors={["#1a2a6c"]}
+          badgeTextStyle={{ color: "#fff" }}
+          dropDownContainerStyle={{ borderColor: "#ccc" }}
+        />
 
-      <TouchableOpacity style={styles.button} onPress={handleCreateTask}>
-        <Text style={styles.buttonText}>Create Task</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.label}>All Tasks</Text>
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.taskCard}>
-            <Text style={styles.taskTitle}>{item.title}</Text>
-            <Text style={styles.taskDescription}>{item.description}</Text>
-            <Text style={styles.taskMeta}>
-              Assigned to: {item.assigned_to} | Status: {item.status}
-            </Text>
-
-            {item.status === "completed" && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  onPress={() => handleUpdateTaskStatus(item.id, "approved")}
-                  style={[styles.actionButton, { backgroundColor: "#4CAF50" }]}
-                >
-                  <Text style={styles.actionText}>Approve</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleUpdateTaskStatus(item.id, "rejected")}
-                  style={[styles.actionButton, { backgroundColor: "#F44336" }]}
-                >
-                  <Text style={styles.actionText}>Reject</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-      />
-      <View style={styles.statusContainer}>
-        <Text style={styles.label}>Business Status:</Text>
-        <Text style={styles.statusText}>
-          Currently: {status === "open" ? "🟢 Open" : "🔴 Closed"}
-        </Text>
-        <TouchableOpacity style={styles.button} onPress={toggleBusinessStatus}>
-          <Text style={styles.buttonText}>
-            Mark as {status === "open" ? "Closed" : "Open"}
-          </Text>
+        <TouchableOpacity style={styles.button} onPress={handleCreateTask}>
+          <Text style={styles.buttonText}>Create Task</Text>
         </TouchableOpacity>
+
+        <ManageEmployees business={business} />
+
+        <Text style={styles.label}>All Tasks</Text>
+        <FlatList
+          data={tasks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.taskCard}>
+              <Text style={styles.taskTitle}>{item.title}</Text>
+              <Text style={styles.taskDescription}>{item.description}</Text>
+              <Text style={styles.taskMeta}>
+                Assigned to: {item.assigned_to} | Status: {item.status}
+              </Text>
+
+              {item.status === "completed" && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    onPress={() => handleUpdateTaskStatus(item.id, "approved")}
+                    style={[
+                      styles.actionButton,
+                      { backgroundColor: "#4CAF50" },
+                    ]}
+                  >
+                    <Text style={styles.actionText}>Approve</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleUpdateTaskStatus(item.id, "rejected")}
+                    style={[
+                      styles.actionButton,
+                      { backgroundColor: "#F44336" },
+                    ]}
+                  >
+                    <Text style={styles.actionText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        />
+        <View style={styles.statusContainer}>
+          <Text style={styles.label}>Business Status:</Text>
+          <Text style={styles.statusText}>
+            Currently: {status === "open" ? "🟢 Open" : "🔴 Closed"}
+          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={toggleBusinessStatus}
+          >
+            <Text style={styles.buttonText}>
+              Mark as {status === "open" ? "Closed" : "Open"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 

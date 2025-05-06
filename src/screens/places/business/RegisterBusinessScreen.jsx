@@ -118,6 +118,7 @@ const RegisterBusinessScreen = ({ navigation }) => {
     setIsSubmitting(true);
 
     try {
+      /* ---------- THE RECORD THAT WILL BE SAVED ---------- */
       const businessData = {
         ...form,
         owner_id: user.uid,
@@ -126,10 +127,14 @@ const RegisterBusinessScreen = ({ navigation }) => {
           email: form.contactEmail,
           phone: form.contactPhone,
         },
+        status: "pending_approval", // <-- ADDED
         created_at: serverTimestamp(),
       };
 
+      // Save the document
       const docRef = await addDoc(collection(db, "businesses"), businessData);
+
+      // Back-write the auto-ID for convenience
       await setDoc(
         doc(db, "businesses", docRef.id),
         { business_id: docRef.id },
@@ -141,9 +146,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
         position: Toast.positions.BOTTOM,
         backgroundColor: "#1a2a6c",
         textColor: "#fff",
-        shadow: true,
-        animation: true,
-        hideOnPress: true,
       });
 
       navigation.goBack();
@@ -154,7 +156,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
         position: Toast.positions.BOTTOM,
         backgroundColor: "#f44336",
         textColor: "#fff",
-        shadow: true,
       });
     } finally {
       setIsSubmitting(false);

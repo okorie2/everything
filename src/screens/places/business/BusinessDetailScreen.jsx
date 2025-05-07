@@ -134,24 +134,24 @@ const BusinessDetailScreen = ({ route, navigation }) => {
 
       {/* Business Header */}
       <View style={styles.businessHeader}>
-        <View style={styles.headerTopRow}>
-          <Pressable
-            style={styles.backButton}
-            onPress={handleGoBack}
-            android_ripple={{
-              color: "rgba(255,255,255,0.2)",
-              borderless: true,
-            }}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </Pressable>
-          <View style={styles.businessInfo}>
-            <Text style={styles.businessName}>{business.name}</Text>
-            <Text style={styles.businessCategory}>{business.category}</Text>
-            {renderRoleBadge()}
-          </View>
-        </View>
-      </View>
+  <View style={styles.headerTopRow}>
+    <Pressable
+      style={styles.backButton}
+      onPress={handleGoBack}
+      android_ripple={{
+        color: "rgba(0,0,0,0.1)",
+        borderless: true,
+      }}
+    >
+      <Text style={styles.backButtonText}>←</Text>
+    </Pressable>
+    <View style={styles.businessInfo}>
+      <Text style={styles.businessName}>{business.name}</Text>
+      <Text style={styles.businessCategory}>{business.category}</Text>
+      {renderRoleBadge()}
+    </View>
+  </View>
+</View>
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -205,33 +205,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   businessHeader: {
-    backgroundColor: COLORS.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
+    marginBottom: 20,
   },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
   backButton: {
-    height: 36,
-    width: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    height: 40,
+    width: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 18,
     marginTop: 2,
+    borderWidth: 1,
+    borderColor: "#eeeeee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 1,
   },
   backButtonText: {
-    color: "#ffffff",
+    color: "#444444",
     fontSize: 22,
     fontWeight: "300",
   },
@@ -240,15 +249,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   businessName: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "bold",
+    color: "#222222",
+    fontSize: 24,
+    fontWeight: "700",
     marginBottom: 4,
+    letterSpacing: -0.5,
   },
   businessCategory: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    marginBottom: 8,
+    color: "#888888",
+    fontSize: 15,
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.2,
+    fontWeight: "500",
+  },
+  roleBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 128, 8, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 128, 8, 0.15)",
+    shadowColor: "rgba(255, 128, 8, 0.2)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  roleBadgeText: {
+    color: "#FF8008",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
   },
   badgeContainer: {
     flexDirection: "row",

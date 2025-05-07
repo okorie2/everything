@@ -59,7 +59,7 @@ export default function SlotListScreen({ route, navigation }) {
     []
   );
 
-  // Format the “Today / Tomorrow / Wed, Jul 7” header
+  // Format the "Today / Tomorrow / Wed, Jul 7" header
   const formatDateHeader = useCallback((d) => {
     if (isToday(d)) return "Today";
     if (isTomorrow(d)) return "Tomorrow";
@@ -110,7 +110,7 @@ export default function SlotListScreen({ route, navigation }) {
 
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 600,
+      duration: 500,
       useNativeDriver: true,
     }).start();
 
@@ -253,7 +253,13 @@ export default function SlotListScreen({ route, navigation }) {
               isBooked && styles.bookedBadge,
             ]}
           >
-            <Text style={styles.availabilityText}>
+            <Text 
+              style={[
+                styles.availabilityText,
+                isFull && styles.fullText,
+                isBooked && styles.bookedText
+              ]}
+            >
               {isBooked
                 ? "Booked ✓"
                 : isFull
@@ -272,8 +278,13 @@ export default function SlotListScreen({ route, navigation }) {
           disabled={isFull || isBooked || bookingInProgress}
           onPress={() => bookSlot(item)}
         >
-          <Text style={styles.btnText}>
-            {isBooked ? "✔ Booked" : isFull ? "Full" : "Book Now"}
+          <Text 
+            style={[
+              styles.btnText,
+              isFull && styles.btnTextFull
+            ]}
+          >
+            {isBooked ? "✓ Booked" : isFull ? "Full" : "Book"}
           </Text>
         </TouchableOpacity>
       </Animated.View>
@@ -283,30 +294,42 @@ export default function SlotListScreen({ route, navigation }) {
   // Empty state
   const ListEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>No slots on this day</Text>
+      <Text style={styles.emptyTitle}>No available slots</Text>
+      <Text style={styles.emptySubtitle}>Try another date or time</Text>
     </View>
   );
 
   // Loading/Error
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#16A34A" />
-        <Text style={styles.loadingText}>Loading slots…</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF8008" />
+          <Text style={styles.loadingText}>Loading slots...</Text>
+        </View>
       </SafeAreaView>
     );
   }
+  
   if (error && !refreshing) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <Text style={{ color: "red" }}>{error}</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => setupRealtimeListener()}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       <FlatList
         ListHeaderComponent={
@@ -325,20 +348,20 @@ export default function SlotListScreen({ route, navigation }) {
                     <Text style={styles.statValue}>
                       {availabilityStats.available}
                     </Text>
-                    <Text style={styles.statLabel}>Slots Left</Text>
+                    <Text style={styles.statLabel}>Slots Available</Text>
                   </View>
                   <View style={styles.statDivider} />
                   <View style={styles.statItem}>
                     <Text style={styles.statValue}>
                       {availabilityStats.percent}%
                     </Text>
-                    <Text style={styles.statLabel}>Avail.</Text>
+                    <Text style={styles.statLabel}>Availability</Text>
                   </View>
                 </View>
               </View>
             </View>
 
-            <View style={styles.dateContainer}>
+            <View style={styles.dateSection}>
               <Text style={styles.dateHeader}>
                 {formatDateHeader(selectedDate)}
               </Text>
@@ -348,6 +371,7 @@ export default function SlotListScreen({ route, navigation }) {
                 keyExtractor={(d) => d.toISOString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dateList}
               />
             </View>
 
@@ -358,8 +382,14 @@ export default function SlotListScreen({ route, navigation }) {
         keyExtractor={(i) => i.id}
         renderItem={renderItem}
         ListEmptyComponent={ListEmpty}
+        contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={["#FF8008"]}
+            tintColor="#FF8008"
+          />
         }
       />
     </SafeAreaView>
@@ -367,109 +397,280 @@ export default function SlotListScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#ffffff" 
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
-  loadingText: { marginTop: 12, fontSize: 16, color: "#64748B" },
-
+  loadingText: { 
+    marginTop: 12, 
+    fontSize: 16, 
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#ef4444",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#FF8008",
+    borderRadius: 8,
+  },
+  retryText: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+  listContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  
+  // Clinic Header
   clinicHeader: {
     flexDirection: "row",
-    padding: 16,
-    borderBottomColor: "#E2E8F0",
+    padding: 20,
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
-  clinicImage: { width: 80, height: 80, borderRadius: 8, marginRight: 16 },
-  clinicInfo: { flex: 1, justifyContent: "center" },
-  clinicTitle: { fontSize: 20, fontWeight: "700", color: "#0F172A" },
-  statsRow: { flexDirection: "row", marginTop: 8, alignItems: "center" },
-  statItem: { flex: 1, alignItems: "center" },
-  statValue: { fontSize: 18, fontWeight: "700", color: "#16A34A" },
-  statLabel: { fontSize: 12, color: "#64748B" },
-  statDivider: { width: 1, height: 24, backgroundColor: "#E2E8F0" },
+  clinicImage: { 
+    width: 70, 
+    height: 70, 
+    borderRadius: 12, 
+    marginRight: 16 
+  },
+  clinicInfo: { 
+    flex: 1, 
+    justifyContent: "center" 
+  },
+  clinicTitle: { 
+    fontSize: 20, 
+    fontWeight: "700", 
+    color: "#0f172a",
+    marginBottom: 8,
+  },
+  statsRow: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    marginTop: 4,
+  },
+  statItem: { 
+    flex: 1,
+  },
+  statValue: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: "#FF8008" 
+  },
+  statLabel: { 
+    fontSize: 13, 
+    color: "#64748b",
+    marginTop: 2,
+  },
+  statDivider: { 
+    width: 1, 
+    height: 30, 
+    backgroundColor: "#e2e8f0",
+    marginHorizontal: 12,
+  },
 
-  dateContainer: {
-    padding: 12,
-    borderBottomColor: "#E2E8F0",
+  // Date Picker
+  dateSection: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
-  dateHeader: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+  dateHeader: { 
+    fontSize: 17, 
+    fontWeight: "600",
+    color: "#0f172a",
+    marginBottom: 12 
+  },
+  dateList: {
+    paddingVertical: 4,
+  },
   dateOption: {
-    width: 60,
+    width: 56,
     height: 70,
-    marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: "#F8FAFC",
+    marginRight: 10,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "#E2E8F0",
+    borderColor: "#e2e8f0",
     borderWidth: 1,
   },
   selectedDateOption: {
-    backgroundColor: "#16A34A",
-    borderColor: "#16A34A",
+    backgroundColor: "#FF8008",
+    borderColor: "#FF8008",
+    shadowColor: "#FF8008",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  dateDay: { fontSize: 12, color: "#64748B" },
-  dateNumber: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
-  selectedDateText: { color: "#fff" },
+  dateDay: { 
+    fontSize: 13, 
+    color: "#64748b",
+    marginBottom: 4,
+  },
+  dateNumber: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: "#0f172a" 
+  },
+  selectedDateText: { 
+    color: "#ffffff" 
+  },
 
+  // Time Filters
   filterContainer: {
     flexDirection: "row",
-    padding: 12,
-    borderBottomColor: "#E2E8F0",
+    padding: 16,
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
   filterButton: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: "center",
+    justifyContent: "center",
     marginHorizontal: 4,
     borderRadius: 8,
-    borderColor: "#E2E8F0",
+    borderColor: "#e2e8f0",
     borderWidth: 1,
+    backgroundColor: "#f8fafc",
   },
   filterButtonActive: {
-    backgroundColor: "#EAF5EA",
-    borderColor: "#16A34A",
+    backgroundColor: "#e0f2fe",
+    borderColor: "#FF8008",
   },
-  filterText: { fontSize: 14, color: "#64748B" },
-  filterTextActive: { color: "#16A34A", fontWeight: "600" },
+  filterText: { 
+    fontSize: 14, 
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  filterTextActive: { 
+    color: "#FF8008", 
+    fontWeight: "600" 
+  },
 
+  // Slot Cards
   slotCard: {
     flexDirection: "row",
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "space-between",
+    shadowColor: "#64748b",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
   },
-  slotInfo: { flex: 1 },
-  time: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
-  duration: { fontSize: 14, color: "#64748B", marginVertical: 4 },
+  slotInfo: { 
+    flex: 1 
+  },
+  time: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: "#0f172a",
+    marginBottom: 4,
+  },
+  duration: { 
+    fontSize: 14, 
+    color: "#64748b", 
+    marginBottom: 8 
+  },
   availabilityBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "#E0F2E9",
+    borderRadius: 20,
+    backgroundColor: "#e0f2fe",
+    alignSelf: "flex-start",
   },
-  fullBadge: { backgroundColor: "#FEF2F2" },
-  bookedBadge: { backgroundColor: "#EFF6FF" },
-  availabilityText: { fontSize: 12, fontWeight: "500", color: "#16A34A" },
+  fullBadge: { 
+    backgroundColor: "#fee2e2" 
+  },
+  bookedBadge: { 
+    backgroundColor: "#dbeafe" 
+  },
+  availabilityText: { 
+    fontSize: 12, 
+    fontWeight: "600", 
+    color: "#FF8008" 
+  },
+  fullText: {
+    color: "#ef4444"
+  },
+  bookedText: {
+    color: "#FFA41B"
+  },
 
+  // Action Button
   btn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: "#16A34A",
+    backgroundColor: "#FF8008",
+    minWidth: 80,
+    alignItems: "center",
   },
-  btnFull: { backgroundColor: "#E2E8F0" },
-  btnBooked: { backgroundColor: "#3B82F6" },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: "#fff", fontWeight: "700" },
+  btnFull: { 
+    backgroundColor: "#f1f5f9" 
+  },
+  btnBooked: { 
+    backgroundColor: "#FFA41B" 
+  },
+  btnDisabled: { 
+    opacity: 0.6 
+  },
+  btnText: { 
+    color: "#ffffff", 
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  btnTextFull: {
+    color: "#94a3b8",
+  },
 
-  emptyContainer: { alignItems: "center", marginTop: 40 },
-  emptyTitle: { fontSize: 18, color: "#64748B" },
+  // Empty State
+  emptyContainer: { 
+    alignItems: "center", 
+    marginTop: 60,
+    padding: 20,
+  },
+  emptyTitle: { 
+    fontSize: 18, 
+    fontWeight: "600",
+    color: "#64748b",
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: "#94a3b8",
+  },
 });

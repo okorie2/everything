@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import {
   collection,
@@ -26,12 +27,14 @@ import { db } from "../../../../../backend/firebase"; // adjust if needed
 export default function ManageEmployees({ business }) {
   /* dropdown state */
   const [userOptions, setUserOptions] = useState([]);
-  const [selectedUid, setSelectedUid] = useState(null);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [open, setOpen] = useState(false);
   const [working, setWorking] = useState(false);
 
   /* role map { uid: 'manager'|'staff',  uid+"_rate": number } */
   const [roleMap, setRoleMap] = useState({});
+  const [editingRate, setEditingRate] = useState(null); // Track which rate is being edited
+  const rateInputRefs = useRef({}); // Refs for rate inputs
 
   /* ─────────── load users & roles once ─────────── */
   useEffect(() => {
@@ -42,7 +45,7 @@ export default function ManageEmployees({ business }) {
         snap.docs.map((d) => ({
           label: `${d.data().first_name} ${d.data().last_name}`,
           value: d.id,
-          icon: () => <Ionicons name="person-outline" size={16} color="#666" />,
+          icon: () => <Ionicons name="person-outline" size={18} color="#888" />,
         }))
       );
 
@@ -63,24 +66,39 @@ export default function ManageEmployees({ business }) {
   /* ─────────── helpers ─────────── */
   const toast = (msg, ok = true) =>
     Toast.show(msg, {
-      backgroundColor: ok ? "#1a2a6c" : "#f44336",
+      backgroundColor: ok ? "#555" : "#f44336",
       textColor: "#fff",
+      duration: Toast.durations.SHORT,
+      position: Toast.positions.BOTTOM,
+      shadow: true,
+      animation: true,
+      hideOnPress: true,
     });
 
-  const addEmployee = async () => {
-    if (!selectedUid) return;
+  const addSelectedEmployees = async () => {
+    if (!selectedEmployees.length) return;
     setWorking(true);
-    await updateDoc(doc(db, "businesses", business.business_id), {
-      employees: arrayUnion(selectedUid),
-    });
-    toast("Employee added");
-    setSelectedUid(null);
-    setOpen(false);
+    
+    try {
+      // Add each selected employee
+      for (const uid of selectedEmployees) {
+        await updateDoc(doc(db, "businesses", business.business_id), {
+          employees: arrayUnion(uid),
+        });
+      }
+      
+      toast(`${selectedEmployees.length} employee(s) added`);
+      setSelectedEmployees([]);
+    } catch (error) {
+      toast("Error adding employees", false);
+      console.error(error);
+    }
+    
     setWorking(false);
   };
 
   const removeEmployee = (uid) =>
-    Alert.alert("Remove employee?", "", [
+    Alert.alert("Remove Employee", "Are you sure you want to remove this employee?", [
       { text: "Cancel" },
       {
         text: "Remove",
@@ -90,7 +108,7 @@ export default function ManageEmployees({ business }) {
           await updateDoc(doc(db, "businesses", business.business_id), {
             employees: arrayRemove(uid),
           });
-          toast("Removed");
+          toast("Employee removed");
           setWorking(false);
         },
       },
@@ -108,10 +126,20 @@ export default function ManageEmployees({ business }) {
     setWorking(false);
   };
 
-  const saveRate = async (uid) => {
+  const handleRateChange = (uid, value) => {
+    setRoleMap((r) => ({ ...r, [uid + "_rate"]: value }));
+  };
+
+  const handleRateBlur = async (uid) => {
+    setEditingRate(null);
     const rStr = roleMap[uid + "_rate"] || "0";
     const rate = parseFloat(rStr);
-    if (isNaN(rate)) return toast("Enter a number", false);
+    
+    if (isNaN(rate)) {
+      toast("Please enter a valid number", false);
+      return;
+    }
+    
     setWorking(true);
     await setDoc(
       doc(db, "businesses", business.business_id, "roles", uid),
@@ -122,146 +150,405 @@ export default function ManageEmployees({ business }) {
     setWorking(false);
   };
 
-  /* list rows */
+  const focusRateInput = (uid) => {
+    setEditingRate(uid);
+    if (rateInputRefs.current[uid]) {
+      rateInputRefs.current[uid].focus();
+    }
+  };
+
+  /* prepare data */
   const current = userOptions.filter((u) =>
     (business.employees || []).includes(u.value)
   );
 
-  const Row = ({ item }) => {
+  const selectedEmployeeItems = selectedEmployees.map(uid => 
+    userOptions.find(u => u.value === uid)
+  ).filter(Boolean);
+
+  /* Employee card component */
+  const EmployeeCard = ({ item }) => {
     const uid = item.value;
     const role = roleMap[uid] || "staff";
     const next = role === "manager" ? "staff" : "manager";
+    const isEditing = editingRate === uid;
 
     return (
-      <View style={s.row}>
-        <Ionicons name="person-circle" size={24} color="#1a2a6c" />
-        <Text style={s.rowText}>{item.label}</Text>
-
-        {/* badge */}
-        <Text style={[s.badge, role === "manager" && s.badgeMgr]}>{role}</Text>
-
-        {/* role toggle */}
-        <TouchableOpacity style={s.roleBtn} onPress={() => saveRole(uid, next)}>
-          <Text style={s.roleBtnTxt}>
-            {role === "manager" ? "Demote" : "Promote"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* rate input */}
-        <TextInput
-          style={s.rateInput}
-          value={roleMap[uid + "_rate"] || ""}
-          onChangeText={(t) =>
-            setRoleMap((r) => ({ ...r, [uid + "_rate"]: t }))
-          }
-          keyboardType="numeric"
-          placeholder="Rate"
-        />
-        <TouchableOpacity style={s.rateSaveBtn} onPress={() => saveRate(uid)}>
-          <Ionicons name="save" size={14} color="#fff" />
-        </TouchableOpacity>
-
-        {/* trash */}
-        <TouchableOpacity onPress={() => removeEmployee(uid)}>
-          <Ionicons name="trash-outline" size={20} color="#f44336" />
-        </TouchableOpacity>
+      <View style={s.card}>
+        <View style={s.cardHeader}>
+          <View style={s.userInfo}>
+            <Ionicons name="person" size={20} color="#555" />
+            <Text style={s.userName}>{item.label}</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={[s.roleBtn, role === "manager" ? s.managerBtn : s.staffBtn]}
+            onPress={() => saveRole(uid, next)}
+          >
+            <Text style={s.roleBtnTxt}>
+              {role}
+            </Text>
+            <Ionicons 
+              name={role === "manager" ? "chevron-down" : "chevron-up"} 
+              size={14} 
+              color="#fff" 
+            />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={s.cardBody}>
+          <View style={s.rateContainer}>
+            <Text style={s.rateLabel}>Hourly Rate</Text>
+            <TouchableOpacity 
+              style={[s.rateInputContainer, isEditing && s.rateInputFocused]} 
+              onPress={() => focusRateInput(uid)}
+              activeOpacity={0.7}
+            >
+              <Text style={s.currencySymbol}>$</Text>
+              <TextInput
+                ref={ref => rateInputRefs.current[uid] = ref}
+                style={s.rateInput}
+                value={roleMap[uid + "_rate"] || ""}
+                onChangeText={(t) => handleRateChange(uid, t)}
+                onBlur={() => handleRateBlur(uid)}
+                keyboardType="numeric"
+                placeholder="0.00"
+                selectTextOnFocus={true}
+              />
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity 
+            style={s.removeBtn} 
+            onPress={() => removeEmployee(uid)}
+          >
+            <Ionicons name="trash-outline" size={16} color="#888" />
+            <Text style={s.removeTxt}>Remove</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
 
+  /* Selected employee chip */
+  const EmployeeChip = ({ item, onRemove }) => (
+    <View style={s.chip}>
+      <Text style={s.chipText} numberOfLines={1}>{item.label}</Text>
+      <TouchableOpacity onPress={onRemove} style={s.chipRemove}>
+        <Ionicons name="close" size={16} color="#888" />
+      </TouchableOpacity>
+    </View>
+  );
+
   /* render */
   return (
-    <View style={{ padding: 12 }}>
-      <Text style={s.title}>Manage Employees</Text>
+    <View style={s.container}>
+      <Text style={s.title}>Employees</Text>
 
-      <DropDownPicker
-        open={open}
-        value={selectedUid}
-        items={userOptions}
-        setOpen={setOpen}
-        setValue={setSelectedUid}
-        setItems={setUserOptions}
-        placeholder="Select user to add"
-        zIndex={3000}
-        zIndexInverse={1000}
-        style={{ marginBottom: 8 }}
-      />
-
-      <TouchableOpacity
-        disabled={!selectedUid || working}
-        style={[s.addBtn, (!selectedUid || working) && { opacity: 0.4 }]}
-        onPress={addEmployee}
-      >
-        {working ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={s.addTxt}>Add Employee</Text>
+      <View style={s.addSection}>
+        <Text style={s.sectionLabel}>Add New Employees</Text>
+        
+        {/* Selected employees chips */}
+        {selectedEmployees.length > 0 && (
+          <ScrollView 
+            horizontal={true} 
+            style={s.chipsScrollView}
+            contentContainerStyle={s.chipsContainer}
+            showsHorizontalScrollIndicator={false}
+          >
+            {selectedEmployeeItems.map(item => (
+              <EmployeeChip 
+                key={item.value} 
+                item={item} 
+                onRemove={() => setSelectedEmployees(prev => 
+                  prev.filter(uid => uid !== item.value)
+                )}
+              />
+            ))}
+          </ScrollView>
         )}
-      </TouchableOpacity>
+        
+        {/* Dropdown for selecting employees */}
+        <DropDownPicker
+          open={open}
+          multiple={true}
+          value={selectedEmployees}
+          items={userOptions.filter(u => !(business.employees || []).includes(u.value))}
+          setOpen={setOpen}
+          setValue={setSelectedEmployees}
+          setItems={setUserOptions}
+          placeholder="Select employees to add"
+          zIndex={3000}
+          zIndexInverse={1000}
+          style={s.dropdown}
+          dropDownContainerStyle={s.dropdownContainer}
+          placeholderStyle={s.dropdownPlaceholder}
+          listItemLabelStyle={s.dropdownItemLabel}
+          selectedItemLabelStyle={s.dropdownSelectedItem}
+          mode="BADGE"
+          badgeColors={["#f0f0f0"]}
+          badgeTextStyle={{color: "#333"}}
+          searchable={true}
+          searchPlaceholder="Search users..."
+        />
 
-      <FlatList
-        data={current}
-        keyExtractor={(i) => i.value}
-        renderItem={Row}
-        ListEmptyComponent={<Text>No employees yet.</Text>}
-        style={{ marginTop: 16 }}
-      />
+        {/* Add button */}
+        <TouchableOpacity
+          disabled={!selectedEmployees.length || working}
+          style={[s.addBtn, (!selectedEmployees.length || working) && s.disabledBtn]}
+          onPress={addSelectedEmployees}
+        >
+          {working ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={s.addTxt}>
+                Add {selectedEmployees.length > 0 ? `${selectedEmployees.length} ` : ''}Employee{selectedEmployees.length !== 1 ? 's' : ''}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Current employees section */}
+      <View style={s.currentSection}>
+        <Text style={s.sectionLabel}>Current Team Members</Text>
+        <FlatList
+          data={current}
+          keyExtractor={(i) => i.value}
+          renderItem={EmployeeCard}
+          ListEmptyComponent={
+            <View style={s.emptyState}>
+              <Ionicons name="people" size={32} color="#ddd" />
+              <Text style={s.emptyText}>No employees added yet</Text>
+            </View>
+          }
+          contentContainerStyle={s.listContent}
+        />
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 24,
+    backgroundColor: "#fff",
+  },
   title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1a2a6c",
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 16,
+  },
+  
+  // Add section
+  addSection: {
+    marginBottom: 32,
+    backgroundColor: "#fff",
+  },
+  chipsScrollView: {
+    maxHeight: 40,
     marginBottom: 12,
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    paddingRight: 20,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#333',
+    maxWidth: 120,
+  },
+  chipRemove: {
+    marginLeft: 6,
+  },
+  dropdown: {
+    borderColor: "#eee",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    backgroundColor: "#fff",
+  },
+  dropdownContainer: {
+    borderColor: "#eee",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  dropdownPlaceholder: {
+    color: "#999",
+    fontSize: 15,
+  },
+  dropdownItemLabel: {
+    color: "#333",
+    fontSize: 15,
+  },
+  dropdownSelectedItem: {
+    color: "#333",
+    fontWeight: "500",
   },
   addBtn: {
     backgroundColor: "#FF8008",
-    padding: 12,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
   },
-  addTxt: { color: "#fff", fontWeight: "600" },
-  row: {
+  addTxt: { 
+    color: "#fff", 
+    fontWeight: "500", 
+    fontSize: 15,
+    marginLeft: 8,
+  },
+  disabledBtn: { 
+    opacity: 0.5,
+    backgroundColor: "#ccc",
+  },
+  
+  // Current employees section
+  currentSection: {
+    flex: 1,
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  
+  // Employee card styles
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+  },
+  userInfo: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
   },
-  rowText: { flex: 1, marginLeft: 8 },
-  badge: {
-    backgroundColor: "#9993",
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    fontSize: 11,
+  userName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    marginLeft: 8,
   },
-  badgeMgr: { backgroundColor: "#4caf5055", color: "#2e7d32" },
   roleBtn: {
-    backgroundColor: "#FF8008",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    marginRight: 6,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  roleBtnTxt: { color: "#fff", fontSize: 10 },
-  rateInput: {
-    width: 60,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 6,
-    textAlign: "center",
-    paddingVertical: 2,
-    fontSize: 12,
+  managerBtn: {
+    backgroundColor: "#FF8008",
+  },
+  staffBtn: {
+    backgroundColor: "#999",
+  },
+  roleBtnTxt: { 
+    color: "#fff", 
+    fontSize: 13,
+    fontWeight: "500",
     marginRight: 4,
   },
-  rateSaveBtn: {
-    backgroundColor: "#16A34A",
-    padding: 4,
+  
+  cardBody: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+  },
+  rateContainer: {
+    flex: 1,
+  },
+  rateLabel: {
+    fontSize: 13,
+    color: "#777",
+    marginBottom: 6,
+  },
+  rateInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#eee",
     borderRadius: 6,
-    marginRight: 6,
+    paddingHorizontal: 10,
+    backgroundColor: "#fff",
+  },
+  rateInputFocused: {
+    borderColor: "#FF8008",
+    backgroundColor: "#fff",
+  },
+  currencySymbol: {
+    fontSize: 15,
+    color: "#777",
+    marginRight: 4,
+  },
+  rateInput: {
+    flex: 1,
+    paddingVertical: 8,
+    fontSize: 15,
+  },
+  removeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 20,
+  },
+  removeTxt: {
+    fontSize: 13,
+    color: "#777",
+    marginLeft: 4,
+  },
+  
+  // Empty state
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+    backgroundColor: "#fafafa",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    marginTop: 12,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: "#777",
+    marginTop: 12,
   },
 });

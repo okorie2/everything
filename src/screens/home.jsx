@@ -76,7 +76,6 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.container}>
         <ScrollView
           style={styles.scrollView}

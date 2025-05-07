@@ -9,11 +9,33 @@ import {
 } from "react-native";
 
 const VisitorView = ({ business }) => {
-  const handleBookAppointment = () => {
-    // Stubbed for now
-    Alert.alert("Booking", "Appointment booking coming soon!");
-  };
+  const handleBookAppointment = async () => {
+    const userId = auth.currentUser.uid;
+    const clinicId = business.id; // Assuming this is available as business.id
+    const slotId = "selectedSlotId"; // Replace with the selected slot ID
+    const slotStart = new Date(); // Example of slot start time
 
+    // Create the appointment in Firestore
+    const appointmentRef = doc(collection(db, "appointments"));
+    const appointmentData = {
+      userId,
+      clinicianId: business.clinician_id, // Assuming business has clinician_id field
+      slotId,
+      start: Timestamp.fromDate(slotStart),
+      status: "pending",
+      createdAt: Timestamp.now(),
+    };
+
+    try {
+      await setDoc(appointmentRef, appointmentData);
+      Alert.alert("Success", "Appointment booked successfully!");
+
+      // Optionally, update calendars for both the user and clinician here.
+    } catch (error) {
+      console.error("Error booking appointment:", error);
+      Alert.alert("Error", "Failed to book appointment");
+    }
+  };
   const handleEmail = () => {
     if (business.contact_info?.email) {
       Linking.openURL(`mailto:${business.contact_info.email}`);

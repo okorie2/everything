@@ -12,6 +12,7 @@ import {
   StatusBar,
   Dimensions,
   Animated,
+  ScrollView,
 } from "react-native";
 import {
   collection,
@@ -21,10 +22,22 @@ import {
   query,
   where,
   orderBy,
+  delay,
 } from "firebase/firestore";
 import { db } from "../../../../../backend/firebase";
 import { MaterialIcons, Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import ClockWidget from "./ClockWidget"; // add at top
+import { getAuth } from "firebase/auth";
 
+const ScrollableTabView = ({ children }) => (
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{ paddingHorizontal: 8 }}
+  >
+    {children}
+  </ScrollView>
+);
 // Constants for colors
 const COLORS = {
   primary: "#FF8008", // Orange (active primary)
@@ -41,7 +54,7 @@ const COLORS = {
   border: "#eeeeee",
 };
 
-const EmployeeDashboard = ({ business, currentUser, navigation }) => {
+const EmployeeDashboard = ({ business, navigation, currentUser }) => {
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,7 +69,15 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
     extrapolate: "clamp",
   });
 
+  const auth = getAuth();
+
   const fetchTasks = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert("Error", "User not authenticated. Please login.");
+      return;
+    }
+
     try {
       setLoading(true);
       const taskRef = collection(
@@ -67,9 +88,10 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
       );
       const q = query(
         taskRef,
-        where("assigned_to", "==", currentUser.uid),
-        orderBy("due_date", "asc")
+        where("assigned_to", "==", currentUser.uid)
+        // remove orderBy for now
       );
+
       const snapshot = await getDocs(q);
 
       const userTasks = snapshot.docs.map((doc) => ({
@@ -92,6 +114,28 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
       Alert.alert("Error", "Failed to load your tasks. Please try again.");
       setLoading(false);
     }
+  };
+
+  const writeDailySummary = async () => {
+    const todayId = new Date().toISOString().slice(0, 10);
+    const count = tasks.filter((t) => t.consult_end).length;
+
+    await addDoc(
+      collection(
+        db,
+        "businesses",
+        HOSPITAL_ID,
+        "activities",
+        currentUser.uid,
+        todayId
+      ),
+      {
+        patient_count: count,
+        issues: "",
+        created_at: Timestamp.now(),
+      }
+    );
+    Alert.alert("Summary saved", `${count} patients logged`);
   };
 
   useEffect(() => {
@@ -288,7 +332,6 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
     return (
       <Animated.View
         style={[styles.taskCard, item.priority === "high" && styles.urgentTask]}
-        entering={Animated.FadeInUp.delay(100)}
       >
         {/* Priority indicator */}
         {item.priority === "high" && (
@@ -399,14 +442,16 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
         <View style={styles.userInfo}>
           <Image
             source={{
-              uri: currentUser.photoURL || "https://via.placeholder.com/50",
+              uri:
+                currentUser?.photoURL ||
+                "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSc_8D2LQ6r3SlQFDRKTvkjhNXxLNcuE8JKMQ&s",
             }}
             style={styles.avatar}
           />
           <View>
             <Text style={styles.greeting}>Hello,</Text>
             <Text style={styles.userName}>
-              {currentUser.displayName || "Employee"}
+              {currentUser?.displayName || "Employee"}
             </Text>
           </View>
         </View>
@@ -509,6 +554,8 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
         </View>
       </View>
 
+      <ClockWidget bizId={business.business_id} />
+
       {/* Task List */}
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -539,26 +586,10 @@ const EmployeeDashboard = ({ business, currentUser, navigation }) => {
       )}
 
       {/* Add task floating button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate("AddTask", { business })}
-      >
-        <MaterialIcons name="add" size={24} color="#fff" />
+      <TouchableOpacity style={styles.button} onPress={writeDailySummary}>
+        <Text style={styles.buttonText}>Daily Summary</Text>
       </TouchableOpacity>
     </View>
-  );
-};
-
-// Scrollable tabs component
-const ScrollableTabView = ({ children }) => {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 8 }}
-    >
-      {children}
-    </ScrollView>
   );
 };
 
@@ -870,5 +901,4 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 });
-
 export default EmployeeDashboard;

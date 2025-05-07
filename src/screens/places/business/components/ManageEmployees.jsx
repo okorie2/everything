@@ -4,6 +4,7 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Alert,
   StyleSheet,
@@ -22,60 +23,60 @@ import DropDownPicker from "react-native-dropdown-picker";
 import Toast from "react-native-root-toast";
 import { db } from "../../../../../backend/firebase"; // adjust if needed
 
-/* props: { business } */
 export default function ManageEmployees({ business }) {
-  /* ── state ───────────────────────────────────────────────────────── */
-  const [allUsers, setAllUsers] = useState([]); // dropdown items
-  const [empList, setEmpList] = useState(business.employees || []);
-  const [roleMap, setRoleMap] = useState({}); // { uid: 'manager' }
+  /* dropdown state */
+  const [userOptions, setUserOptions] = useState([]);
+  const [selectedUid, setSelectedUid] = useState(null);
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(null); // dropdown value
-  const [processing, setProcessing] = useState(false);
+  const [working, setWorking] = useState(false);
 
+  /* role map { uid: 'manager'|'staff',  uid+"_rate": number } */
+  const [roleMap, setRoleMap] = useState({});
+
+  /* ─────────── load users & roles once ─────────── */
+  useEffect(() => {
+    (async () => {
+      /* user list */
+      const snap = await getDocs(collection(db, "user"));
+      setUserOptions(
+        snap.docs.map((d) => ({
+          label: `${d.data().first_name} ${d.data().last_name}`,
+          value: d.id,
+          icon: () => <Ionicons name="person-outline" size={16} color="#666" />,
+        }))
+      );
+
+      /* roles */
+      const rolesSnap = await getDocs(
+        collection(db, "businesses", business.business_id, "roles")
+      );
+      const map = {};
+      rolesSnap.docs.forEach((r) => {
+        const { role = "staff", hourly_rate = 0 } = r.data();
+        map[r.id] = role;
+        map[r.id + "_rate"] = hourly_rate.toString();
+      });
+      setRoleMap(map);
+    })();
+  }, [business.business_id]);
+
+  /* ─────────── helpers ─────────── */
   const toast = (msg, ok = true) =>
     Toast.show(msg, {
       backgroundColor: ok ? "#1a2a6c" : "#f44336",
       textColor: "#fff",
     });
 
-  /* ── initial fetch ──────────────────────────────────────────────── */
-  useEffect(() => {
-    (async () => {
-      /* users for dropdown */
-      const usersSnap = await getDocs(collection(db, "user"));
-      const items = usersSnap.docs.map((d) => ({
-        label: `${d.data().first_name} ${d.data().last_name}`,
-        value: d.id,
-        icon: () => <Ionicons name="person-outline" size={16} color="#666" />,
-      }));
-      setAllUsers(items);
-
-      /* existing roles */
-      const roleSnap = await getDocs(
-        collection(db, "businesses", business.business_id, "roles")
-      );
-      const map = {};
-      roleSnap.docs.forEach((d) => (map[d.id] = d.data().role));
-      setRoleMap(map);
-    })();
-  }, [business.business_id]);
-
-  /* ── helpers ────────────────────────────────────────────────────── */
   const addEmployee = async () => {
-    if (!value) return;
-    setProcessing(true);
-    try {
-      await updateDoc(doc(db, "businesses", business.business_id), {
-        employees: arrayUnion(value),
-      });
-      setEmpList((list) => [...list, value]); // optimistic UI
-      toast("Employee added!");
-    } catch (e) {
-      console.error(e);
-      toast("Failed to add employee.", false);
-    }
-    setProcessing(false);
-    setValue(null);
+    if (!selectedUid) return;
+    setWorking(true);
+    await updateDoc(doc(db, "businesses", business.business_id), {
+      employees: arrayUnion(selectedUid),
+    });
+    toast("Employee added");
+    setSelectedUid(null);
+    setOpen(false);
+    setWorking(false);
   };
 
   const removeEmployee = (uid) =>
@@ -85,149 +86,158 @@ export default function ManageEmployees({ business }) {
         text: "Remove",
         style: "destructive",
         onPress: async () => {
-          setProcessing(true);
-          try {
-            await updateDoc(doc(db, "businesses", business.business_id), {
-              employees: arrayRemove(uid),
-            });
-            setEmpList((list) => list.filter((x) => x !== uid));
-            toast("Employee removed");
-          } catch (e) {
-            console.error(e);
-            toast("Failed to remove.", false);
-          }
-          setProcessing(false);
+          setWorking(true);
+          await updateDoc(doc(db, "businesses", business.business_id), {
+            employees: arrayRemove(uid),
+          });
+          toast("Removed");
+          setWorking(false);
         },
       },
     ]);
 
-  const changeRole = async (uid, next) => {
-    setProcessing(true);
-    try {
-      await setDoc(
-        doc(db, "businesses", business.business_id, "roles", uid),
-        { role: next },
-        { merge: true }
-      );
-      setRoleMap((m) => ({ ...m, [uid]: next }));
-      toast(`Role set to ${next}`);
-    } catch (e) {
-      console.error(e);
-      toast("Failed to change role.", false);
-    }
-    setProcessing(false);
+  const saveRole = async (uid, next) => {
+    setWorking(true);
+    await setDoc(
+      doc(db, "businesses", business.business_id, "roles", uid),
+      { role: next },
+      { merge: true }
+    );
+    setRoleMap((r) => ({ ...r, [uid]: next }));
+    toast("Role updated");
+    setWorking(false);
   };
 
-  /* ── render helpers ─────────────────────────────────────────────── */
-  const people = allUsers.filter((u) => empList.includes(u.value));
+  const saveRate = async (uid) => {
+    const rStr = roleMap[uid + "_rate"] || "0";
+    const rate = parseFloat(rStr);
+    if (isNaN(rate)) return toast("Enter a number", false);
+    setWorking(true);
+    await setDoc(
+      doc(db, "businesses", business.business_id, "roles", uid),
+      { hourly_rate: rate },
+      { merge: true }
+    );
+    toast("Rate saved");
+    setWorking(false);
+  };
 
-  const renderRow = ({ item }) => {
-    const role = roleMap[item.value] || "staff";
+  /* list rows */
+  const current = userOptions.filter((u) =>
+    (business.employees || []).includes(u.value)
+  );
+
+  const Row = ({ item }) => {
+    const uid = item.value;
+    const role = roleMap[uid] || "staff";
     const next = role === "manager" ? "staff" : "manager";
+
     return (
-      <View style={S.row}>
-        <Ionicons name="person-circle" size={22} color="#1a2a6c" />
-        <Text style={S.rowText}>{item.label}</Text>
+      <View style={s.row}>
+        <Ionicons name="person-circle" size={24} color="#1a2a6c" />
+        <Text style={s.rowText}>{item.label}</Text>
 
-        <Text style={[S.badge, role === "manager" && S.badgeMgr]}>{role}</Text>
+        {/* badge */}
+        <Text style={[s.badge, role === "manager" && s.badgeMgr]}>{role}</Text>
 
-        <TouchableOpacity
-          style={S.roleBtn}
-          onPress={() => changeRole(item.value, next)}
-        >
-          <Text style={S.roleTxt}>
+        {/* role toggle */}
+        <TouchableOpacity style={s.roleBtn} onPress={() => saveRole(uid, next)}>
+          <Text style={s.roleBtnTxt}>
             {role === "manager" ? "Demote" : "Promote"}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => removeEmployee(item.value)}>
+        {/* rate input */}
+        <TextInput
+          style={s.rateInput}
+          value={roleMap[uid + "_rate"] || ""}
+          onChangeText={(t) =>
+            setRoleMap((r) => ({ ...r, [uid + "_rate"]: t }))
+          }
+          keyboardType="numeric"
+          placeholder="Rate"
+        />
+        <TouchableOpacity style={s.rateSaveBtn} onPress={() => saveRate(uid)}>
+          <Ionicons name="save" size={14} color="#fff" />
+        </TouchableOpacity>
+
+        {/* trash */}
+        <TouchableOpacity onPress={() => removeEmployee(uid)}>
           <Ionicons name="trash-outline" size={20} color="#f44336" />
         </TouchableOpacity>
       </View>
     );
   };
 
-  /* ── header comp (scrolls with list) ────────────────────────────── */
-  const ListHeader = () => (
-    <View>
-      <Text style={S.title}>Manage Employees</Text>
+  /* render */
+  return (
+    <View style={{ padding: 12 }}>
+      <Text style={s.title}>Manage Employees</Text>
 
       <DropDownPicker
         open={open}
-        value={value}
-        items={allUsers}
+        value={selectedUid}
+        items={userOptions}
         setOpen={setOpen}
-        setValue={setValue}
-        setItems={setAllUsers}
+        setValue={setSelectedUid}
+        setItems={setUserOptions}
         placeholder="Select user to add"
-        zIndex={3000} /* keeps dropdown above list */
+        zIndex={3000}
         zIndexInverse={1000}
-        style={S.dd}
+        style={{ marginBottom: 8 }}
       />
 
       <TouchableOpacity
-        style={[S.addBtn, !value && { opacity: 0.35 }]}
-        disabled={!value || processing}
+        disabled={!selectedUid || working}
+        style={[s.addBtn, (!selectedUid || working) && { opacity: 0.4 }]}
         onPress={addEmployee}
       >
-        {processing ? (
+        {working ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={S.addTxt}>Add Employee</Text>
+          <Text style={s.addTxt}>Add Employee</Text>
         )}
       </TouchableOpacity>
-    </View>
-  );
 
-  /* ── UI (FlatList with header) ─────────────────────────────────── */
-  return (
-    <FlatList
-      data={people}
-      keyExtractor={(item) => item.value}
-      renderItem={renderRow}
-      ListHeaderComponent={ListHeader}
-      ListEmptyComponent={
-        <Text style={{ marginTop: 12 }}>No employees yet.</Text>
-      }
-      contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}
-    />
+      <FlatList
+        data={current}
+        keyExtractor={(i) => i.value}
+        renderItem={Row}
+        ListEmptyComponent={<Text>No employees yet.</Text>}
+        style={{ marginTop: 16 }}
+      />
+    </View>
   );
 }
 
-/* ── styles ───────────────────────────────────────────────────────── */
-const S = StyleSheet.create({
+const s = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "700",
     color: "#1a2a6c",
     marginBottom: 12,
   },
-  dd: { borderColor: "#E0E7FF", marginBottom: 12 },
   addBtn: {
     backgroundColor: "#FF8008",
-    paddingVertical: 12,
+    padding: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   addTxt: { color: "#fff", fontWeight: "600" },
-
   row: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
     backgroundColor: "#fff",
+    padding: 10,
     borderRadius: 8,
     marginBottom: 8,
   },
-  rowText: { flex: 1, marginLeft: 10, fontSize: 14 },
+  rowText: { flex: 1, marginLeft: 8 },
   badge: {
     backgroundColor: "#9993",
-    color: "#555",
-    fontSize: 11,
     paddingHorizontal: 6,
     borderRadius: 6,
-    marginRight: 8,
+    fontSize: 11,
   },
   badgeMgr: { backgroundColor: "#4caf5055", color: "#2e7d32" },
   roleBtn: {
@@ -235,7 +245,23 @@ const S = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 4,
-    marginRight: 8,
+    marginRight: 6,
   },
-  roleTxt: { color: "#fff", fontSize: 10 },
+  roleBtnTxt: { color: "#fff", fontSize: 10 },
+  rateInput: {
+    width: 60,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    textAlign: "center",
+    paddingVertical: 2,
+    fontSize: 12,
+    marginRight: 4,
+  },
+  rateSaveBtn: {
+    backgroundColor: "#16A34A",
+    padding: 4,
+    borderRadius: 6,
+    marginRight: 6,
+  },
 });

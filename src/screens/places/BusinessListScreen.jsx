@@ -70,8 +70,9 @@ const BusinessListScreen = ({ navigation }) => {
         mine = mineSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }
 
-      // 3) Merge & set state
-      const merged = [...approved, ...mine];
+      const merged = [...approved, ...mine].filter(
+        (b) => b.name !== "Bethel City Hospital"
+      );
       setBusinesses(merged);
       setFiltered(merged);
     } catch (err) {

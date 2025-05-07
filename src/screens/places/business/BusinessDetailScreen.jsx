@@ -160,6 +160,7 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         {(role === "owner" || role === "employee") &&
           renderTabButton("analytics", "Analytics")}
         {renderTabButton("info", "Information")}
+        {role === "owner" && renderTabButton("payroll", "Payroll")}
       </View>
 
       {/* Content Area - No ScrollView wrapper to avoid nesting issues */}
@@ -169,7 +170,12 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         )}
 
         {role === "employee" && (
-          <EmployeeDashboard business={business} activeTab={activeTab} />
+          <EmployeeDashboard
+            business={business}
+            activeTab={activeTab}
+            navigation={navigation}
+            currentUser={currentUser}
+          />
         )}
 
         {role === "visitor" && (

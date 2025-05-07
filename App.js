@@ -1,5 +1,11 @@
 import React from "react";
-import { StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  SafeAreaView,
+} from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import CalculatorScreen from "./src/screens/calculatorScreen";
@@ -20,14 +26,12 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./backend/firebase";
 import RegisterBusinessScreen from "./src/screens/places/business/RegisterBusinessScreen"; // adjust if needed
 import BusinessDetailScreen from "./src/screens/places/business/BusinessDetailScreen";
-
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import BusinessListScreen from "./src/screens/places/BusinessListScreen"; // adjust if needed
-// Placeholder screens (to be replaced with actual implementations)
-const CalendarScreen = () => (
-  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-    <Text style={{ fontSize: 20 }}>Calendar Screen</Text>
-  </View>
-);
+import { Platform, StatusBar } from "react-native";
+import AppointmentNavigator from "./src/navigations/AppointmentNavigator"; // adjust if needed
+import CalendarScreen from "./src/screens/calendar/CalendarScreen";
+import QueueDetailScreen from "./src/screens/hospital/QueueDetailScreen";
 
 const ChatScreen = () => (
   <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -201,6 +205,9 @@ const AppNavigator = () => {
       />
       <Stack.Screen name="BusinessList" component={BusinessListScreen} />
       <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
+      <Stack.Screen name="Appointment" component={AppointmentNavigator} />
+      <Stack.Screen name="Calendar" component={CalendarScreen} />
+      <Stack.Screen name="QueueDetail" component={QueueDetailScreen} />
     </Stack.Navigator>
   );
 };
@@ -228,7 +235,12 @@ const RootNavigator = () => {
 };
 
 export default function App() {
-  return <RootNavigator />;
+  return (
+    <>
+      <StatusBar barStyle="dark-content" />
+      <RootNavigator />
+    </>
+  );
 }
 
 // const styles = StyleSheet.create({

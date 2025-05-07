@@ -12,413 +12,240 @@ import {
   StatusBar,
   Image,
   Animated,
-  Platform,
-  ToastAndroid,
   Dimensions,
 } from "react-native";
 import {
-  doc,
-  getDocs,
   collection,
   query,
   where,
+  orderBy,
+  getDocs,
+  onSnapshot,
   updateDoc,
   arrayUnion,
-  orderBy,
-  limit,
   Timestamp,
-  onSnapshot,
+  doc,
 } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
 import {
+  startOfDay,
+  endOfDay,
+  addDays,
   format,
   isToday,
   isTomorrow,
-  addDays,
-  startOfDay,
-  endOfDay,
   differenceInMinutes,
 } from "date-fns";
 import { HOSPITAL_ID } from "../../constants/hospital";
 
-const windowWidth = Dimensions.get("window").width;
+const { width: windowWidth } = Dimensions.get("window");
+const fadeAnim = new Animated.Value(0);
 
 export default function SlotListScreen({ route, navigation }) {
   const { clinicId, clinicTitle, clinicImage } = route.params;
-  const [slots, setSlots] = useState(null);
+  const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [subscription, setSubscription] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
-  const [filterOption, setFilterOption] = useState("all"); // 'all', 'morning', 'afternoon', 'evening'
-  const fadeAnim = new Animated.Value(0);
+  const [filterOption, setFilterOption] = useState("all"); // all|morning|afternoon|evening
 
   const userId = auth.currentUser?.uid;
 
-  // Dates for the date selector
-  const dateOptions = useMemo(() => {
-    return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
+  // Prepare next 14 days for the date-picker
+  const dateOptions = useMemo(
+    () => Array.from({ length: 14 }, (_, i) => addDays(new Date(), i)),
+    []
+  );
+
+  // Format the “Today / Tomorrow / Wed, Jul 7” header
+  const formatDateHeader = useCallback((d) => {
+    if (isToday(d)) return "Today";
+    if (isTomorrow(d)) return "Tomorrow";
+    return format(d, "EEE, MMM d");
   }, []);
 
-  // Function to format date for header display
-  const formatDateHeader = useCallback((date) => {
-    if (isToday(date)) return "Today";
-    if (isTomorrow(date)) return "Tomorrow";
-    return format(date, "EEE, MMM d");
-  }, []);
-
-  // Filter slots based on selected date and time preferences
-  const filteredSlots = useMemo(() => {
-    if (!slots) return [];
-
-    const startOfSelectedDate = startOfDay(selectedDate);
-    const endOfSelectedDate = endOfDay(selectedDate);
-
-    let filtered = slots.filter((slot) => {
-      const slotDate = slot.start.toDate();
-      return slotDate >= startOfSelectedDate && slotDate <= endOfSelectedDate;
-    });
-
-    // Apply time of day filter
-    if (filterOption !== "all") {
-      filtered = filtered.filter((slot) => {
-        const hours = slot.start.toDate().getHours();
-        switch (filterOption) {
-          case "morning":
-            return hours >= 6 && hours < 12;
-          case "afternoon":
-            return hours >= 12 && hours < 17;
-          case "evening":
-            return hours >= 17 && hours < 23;
-          default:
-            return true;
-        }
-      });
-    }
-
-    return filtered;
-  }, [slots, selectedDate, filterOption]);
-
-  // Calculate availability statistics
-  const availabilityStats = useMemo(() => {
-    if (!filteredSlots.length)
-      return { total: 0, available: 0, percentAvailable: 0 };
-
-    const total = filteredSlots.length;
-    const available = filteredSlots.filter(
-      (slot) => slot.booked.length < slot.capacity
-    ).length;
-
-    return {
-      total,
-      available,
-      percentAvailable: Math.round((available / total) * 100),
-    };
-  }, [filteredSlots]);
-
-  // Set up header options and load initial data
-  useEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      title: clinicTitle,
-      headerTitleStyle: styles.headerTitle,
-      headerStyle: styles.headerStyle,
-    });
-
-    loadSlots();
-
-    // Animation effect when component mounts
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-
-    // Clean up subscription when component unmounts
-    return () => {
-      if (subscription) {
-        subscription();
-      }
-    };
-  }, []);
-
-  // Set up real-time listener for slot updates
+  // Build a Firestore query **for the selectedDate** and subscribe in real-time
   const setupRealtimeListener = useCallback(() => {
-    // Get current time
-    const now = new Date();
+    const start = startOfDay(selectedDate);
+    const end = endOfDay(selectedDate);
 
-    // Query slots that are open and in the future
-    const slotsQuery = query(
+    const q = query(
       collection(db, "businesses", HOSPITAL_ID, "clinics", clinicId, "slots"),
       where("status", "==", "open"),
-      where("start", ">=", Timestamp.fromDate(now)),
-      orderBy("start", "asc")
+      where("start", ">=", Timestamp.fromDate(start)),
+      where("start", "<=", Timestamp.fromDate(end)),
+      orderBy("start")
     );
 
-    // Set up real-time listener
-    const unsubscribe = onSnapshot(
-      slotsQuery,
-      (snapshot) => {
-        const updatedSlots = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ref: doc.ref,
-          ...doc.data(),
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setError(null);
+        const arr = snap.docs.map((d) => ({
+          id: d.id,
+          ref: d.ref,
+          ...d.data(),
         }));
-
-        setSlots(updatedSlots);
+        setSlots(arr);
         setLoading(false);
         setRefreshing(false);
       },
       (err) => {
-        console.error("Error in real-time listener:", err);
-        setError("Failed to listen for updates. Please refresh manually.");
+        console.error("Realtime slots error:", err);
+        setError("Could not load slots in real time.");
         setLoading(false);
         setRefreshing(false);
       }
     );
 
-    setSubscription(unsubscribe);
-  }, [clinicId]);
+    return unsub;
+  }, [clinicId, selectedDate]);
 
-  // Load slots from Firestore
-  const loadSlots = useCallback(async () => {
-    try {
-      setError(null);
-      if (!refreshing) setLoading(true);
+  // Initial + whenever selectedDate changes
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = setupRealtimeListener();
 
-      // Get current time
-      const now = new Date();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
 
-      // Query slots that are open and in the future
-      const slotsQuery = query(
-        collection(db, "businesses", HOSPITAL_ID, "clinics", clinicId, "slots"),
-        where("status", "==", "open"),
-        where("start", ">=", Timestamp.fromDate(now)),
-        orderBy("start", "asc")
-      );
+    return unsubscribe;
+  }, [setupRealtimeListener]);
 
-      const snap = await getDocs(slotsQuery);
-
-      const data = snap.docs.map((doc) => ({
-        id: doc.id,
-        ref: doc.ref,
-        ...doc.data(),
-      }));
-
-      setSlots(data);
-
-      // Set up real-time updates after initial load
-      setupRealtimeListener();
-    } catch (err) {
-      console.error("Failed to load slots:", err);
-      setError("Failed to load available slots. Please try again.");
-      setSlots([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [clinicId, refreshing, setupRealtimeListener]);
-
-  // Handle refresh action
-  const onRefresh = useCallback(() => {
+  const onRefresh = () => {
     setRefreshing(true);
-    loadSlots();
-  }, [loadSlots]);
+    // we already have a real-time listener, so just clear the flag
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
-  // Book a slot
+  // Filter for morning/afternoon/evening
+  const filteredSlots = useMemo(() => {
+    let out = slots;
+    if (filterOption !== "all") {
+      out = out.filter((s) => {
+        const hr = s.start.toDate().getHours();
+        if (filterOption === "morning") return hr >= 6 && hr < 12;
+        if (filterOption === "afternoon") return hr >= 12 && hr < 17;
+        if (filterOption === "evening") return hr >= 17 && hr < 23;
+        return true;
+      });
+    }
+    return out;
+  }, [slots, filterOption]);
+
+  // Availability stats
+  const availabilityStats = useMemo(() => {
+    const total = filteredSlots.length;
+    const available = filteredSlots.filter(
+      (s) => (s.booked ?? []).length < s.capacity
+    ).length;
+    return {
+      total,
+      available,
+      percent: total ? Math.round((available / total) * 100) : 0,
+    };
+  }, [filteredSlots]);
+
+  // Booking action
   const bookSlot = async (slot) => {
     if (!userId) {
-      Alert.alert(
-        "Authentication Required",
-        "Please log in to book an appointment.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Log In", onPress: () => navigation.navigate("Login") },
-        ]
-      );
-      return;
+      return Alert.alert("Please log in", "You need to be signed in to book.", [
+        { text: "OK" },
+      ]);
     }
-
-    // Prevent double booking
     if (bookingInProgress) return;
+    setBookingInProgress(true);
 
     try {
-      setBookingInProgress(true);
-
-      // Check slot availability again before booking
-      const slotRef = slot.ref;
-      const slotSnapshot = await getDocs(doc(slotRef));
-      const currentData = slotSnapshot.exists() ? slotSnapshot.data() : null;
-
-      if (!currentData || currentData.booked.length >= currentData.capacity) {
-        Alert.alert("Slot Unavailable", "This slot is no longer available.");
-        return;
+      // Re-fetch to avoid race
+      const snap = await slot.ref.get();
+      const data = snap.data();
+      if ((data.booked ?? []).length >= data.capacity) {
+        throw new Error("Slot is full");
       }
-
-      // Proceed with booking
-      await updateDoc(slotRef, {
+      await updateDoc(slot.ref, {
         booked: arrayUnion(userId),
         lastUpdated: Timestamp.now(),
       });
-
-      // Show success message
-      if (Platform.OS === "android") {
-        ToastAndroid.show(
-          "Appointment booked successfully!",
-          ToastAndroid.SHORT
-        );
-      } else {
-        Alert.alert(
-          "Booking Confirmed",
-          "Your appointment has been successfully booked.",
-          [{ text: "OK" }]
-        );
-      }
-
-      // Update local state for immediate UI feedback
-      setSlots((prev) =>
-        prev.map((s) =>
-          s.id === slot.id ? { ...s, booked: [...s.booked, userId] } : s
-        )
-      );
-
-      // Navigate to confirmation screen with appointment details
+      Alert.alert("Booked!", "Your appointment is confirmed.");
       navigation.navigate("AppointmentConfirmation", {
         clinicTitle,
         appointmentTime: slot.start.toDate(),
         appointmentId: slot.id,
         clinicId,
       });
-    } catch (err) {
-      console.error("Booking error:", err);
-      Alert.alert(
-        "Booking Failed",
-        "Unable to book this appointment. Please try again."
-      );
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Could not book", e.message || "Try again later.");
     } finally {
       setBookingInProgress(false);
     }
   };
 
+  // Date‐picker header
   const renderDateOption = ({ item }) => {
-    const isSelected =
+    const isSel =
       item.getDate() === selectedDate.getDate() &&
       item.getMonth() === selectedDate.getMonth();
-
-    const dayNumber = format(item, "d");
-    const dayName = format(item, "EEE");
-
     return (
       <TouchableOpacity
-        style={[styles.dateOption, isSelected && styles.selectedDateOption]}
+        style={[styles.dateOption, isSel && styles.selectedDateOption]}
         onPress={() => setSelectedDate(item)}
       >
-        <Text style={[styles.dateDay, isSelected && styles.selectedDateText]}>
-          {dayName}
+        <Text style={[styles.dateDay, isSel && styles.selectedDateText]}>
+          {format(item, "EEE")}
         </Text>
-        <Text
-          style={[styles.dateNumber, isSelected && styles.selectedDateText]}
-        >
-          {dayNumber}
+        <Text style={[styles.dateNumber, isSel && styles.selectedDateText]}>
+          {format(item, "d")}
         </Text>
       </TouchableOpacity>
     );
   };
 
+  // Time‐of‐day filter buttons
   const renderTimeFilter = () => (
     <View style={styles.filterContainer}>
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          filterOption === "all" && styles.filterButtonActive,
-        ]}
-        onPress={() => setFilterOption("all")}
-      >
-        <Text
+      {["all", "morning", "afternoon", "evening"].map((opt) => (
+        <TouchableOpacity
+          key={opt}
           style={[
-            styles.filterText,
-            filterOption === "all" && styles.filterTextActive,
+            styles.filterButton,
+            filterOption === opt && styles.filterButtonActive,
           ]}
+          onPress={() => setFilterOption(opt)}
         >
-          All
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          filterOption === "morning" && styles.filterButtonActive,
-        ]}
-        onPress={() => setFilterOption("morning")}
-      >
-        <Text
-          style={[
-            styles.filterText,
-            filterOption === "morning" && styles.filterTextActive,
-          ]}
-        >
-          Morning
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          filterOption === "afternoon" && styles.filterButtonActive,
-        ]}
-        onPress={() => setFilterOption("afternoon")}
-      >
-        <Text
-          style={[
-            styles.filterText,
-            filterOption === "afternoon" && styles.filterTextActive,
-          ]}
-        >
-          Afternoon
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          filterOption === "evening" && styles.filterButtonActive,
-        ]}
-        onPress={() => setFilterOption("evening")}
-      >
-        <Text
-          style={[
-            styles.filterText,
-            filterOption === "evening" && styles.filterTextActive,
-          ]}
-        >
-          Evening
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.filterText,
+              filterOption === opt && styles.filterTextActive,
+            ]}
+          >
+            {opt.charAt(0).toUpperCase() + opt.slice(1)}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 
+  // Slot card
   const renderItem = ({ item }) => {
-    const startTime = item.start.toDate();
-    const endTime = item.end.toDate();
-    const durationMinutes = differenceInMinutes(endTime, startTime);
-    const formattedTime = format(startTime, "h:mm a");
-
-    const availableSpots = item.capacity - item.booked.length;
-    const isFull = availableSpots <= 0;
-    const isBooked = item.booked.includes(userId);
-    const slotsRemaining = isBooked
-      ? "Booked"
-      : isFull
-      ? "Full"
-      : `${availableSpots} spot${availableSpots !== 1 ? "s" : ""} left`;
-
+    const start = item.start.toDate();
+    const end = item.end.toDate();
+    const duration = differenceInMinutes(end, start);
+    const bookedCount = (item.booked ?? []).length;
+    const spotsLeft = item.capacity - bookedCount;
+    const isFull = spotsLeft <= 0;
+    const isBooked = (item.booked ?? []).includes(userId);
     return (
       <Animated.View style={[styles.slotCard, { opacity: fadeAnim }]}>
         <View style={styles.slotInfo}>
-          <Text style={styles.time}>{formattedTime}</Text>
-          <Text style={styles.duration}>{durationMinutes} min</Text>
+          <Text style={styles.time}>{format(start, "h:mm a")}</Text>
+          <Text style={styles.duration}>{duration} min</Text>
           <View
             style={[
               styles.availabilityBadge,
@@ -426,93 +253,53 @@ export default function SlotListScreen({ route, navigation }) {
               isBooked && styles.bookedBadge,
             ]}
           >
-            <Text style={styles.availabilityText}>{slotsRemaining}</Text>
+            <Text style={styles.availabilityText}>
+              {isBooked
+                ? "Booked ✓"
+                : isFull
+                ? "Full"
+                : `${spotsLeft} spot${spotsLeft > 1 ? "s" : ""}`}
+            </Text>
           </View>
         </View>
-
         <TouchableOpacity
           style={[
             styles.btn,
-            isFull ? styles.btnFull : null,
-            isBooked ? styles.btnBooked : null,
+            isFull && styles.btnFull,
+            isBooked && styles.btnBooked,
             bookingInProgress && styles.btnDisabled,
           ]}
           disabled={isFull || isBooked || bookingInProgress}
           onPress={() => bookSlot(item)}
         >
           <Text style={styles.btnText}>
-            {isBooked ? "Booked ✓" : isFull ? "Full" : "Book Now"}
+            {isBooked ? "✔ Booked" : isFull ? "Full" : "Book Now"}
           </Text>
         </TouchableOpacity>
       </Animated.View>
     );
   };
 
-  const renderClinicHeader = () => (
-    <View style={styles.clinicHeaderContainer}>
-      {clinicImage && (
-        <Image source={{ uri: clinicImage }} style={styles.clinicImage} />
-      )}
-
-      <View style={styles.clinicInfoContainer}>
-        <Text style={styles.clinicTitle}>{clinicTitle}</Text>
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{availabilityStats.available}</Text>
-            <Text style={styles.statLabel}>Available Slots</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {availabilityStats.percentAvailable}%
-            </Text>
-            <Text style={styles.statLabel}>Availability</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-
-  const ListEmptyComponent = () => (
+  // Empty state
+  const ListEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Image style={styles.emptyImage} />
-      <Text style={styles.emptyTitle}>No Available Slots</Text>
-      <Text style={styles.emptySubtitle}>
-        There are no appointments available for this day. Try selecting a
-        different date or check back later.
-      </Text>
-      <TouchableOpacity
-        style={styles.emptyButton}
-        onPress={() => setSelectedDate(new Date())}
-      >
-        <Text style={styles.emptyButtonText}>Go to Today</Text>
-      </TouchableOpacity>
+      <Text style={styles.emptyTitle}>No slots on this day</Text>
     </View>
   );
 
+  // Loading/Error
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" />
         <ActivityIndicator size="large" color="#16A34A" />
-        <Text style={styles.loadingText}>Loading available slots...</Text>
+        <Text style={styles.loadingText}>Loading slots…</Text>
       </SafeAreaView>
     );
   }
-
-  if (error && !slots?.length) {
+  if (error && !refreshing) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <StatusBar barStyle="dark-content" />
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorTitle}>Something went wrong</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadSlots}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={styles.loadingContainer}>
+        <Text style={{ color: "red" }}>{error}</Text>
       </SafeAreaView>
     );
   }
@@ -524,19 +311,43 @@ export default function SlotListScreen({ route, navigation }) {
       <FlatList
         ListHeaderComponent={
           <>
-            {renderClinicHeader()}
+            <View style={styles.clinicHeader}>
+              {clinicImage && (
+                <Image
+                  source={{ uri: clinicImage }}
+                  style={styles.clinicImage}
+                />
+              )}
+              <View style={styles.clinicInfo}>
+                <Text style={styles.clinicTitle}>{clinicTitle}</Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                      {availabilityStats.available}
+                    </Text>
+                    <Text style={styles.statLabel}>Slots Left</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                      {availabilityStats.percent}%
+                    </Text>
+                    <Text style={styles.statLabel}>Avail.</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
 
             <View style={styles.dateContainer}>
-              <Text style={styles.dateHeaderText}>
+              <Text style={styles.dateHeader}>
                 {formatDateHeader(selectedDate)}
               </Text>
               <FlatList
                 data={dateOptions}
                 renderItem={renderDateOption}
-                keyExtractor={(item) => item.toString()}
+                keyExtractor={(d) => d.toISOString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.dateList}
               />
             </View>
 
@@ -544,18 +355,11 @@ export default function SlotListScreen({ route, navigation }) {
           </>
         }
         data={filteredSlots}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(i) => i.id}
         renderItem={renderItem}
-        ListEmptyComponent={ListEmptyComponent}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={ListEmpty}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#16A34A"]}
-            tintColor="#16A34A"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
     </SafeAreaView>
@@ -563,298 +367,109 @@ export default function SlotListScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  headerStyle: {
-    backgroundColor: "#fff",
-    elevation: 0,
-    shadowOpacity: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#64748B",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 24,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#EF4444",
-    marginBottom: 8,
-  },
-  errorMessage: {
-    fontSize: 16,
-    color: "#64748B",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: "#16A34A",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  listContent: {
-    paddingBottom: 24,
-  },
-  separator: {
-    height: 12,
-  },
-  clinicHeaderContainer: {
+  loadingText: { marginTop: 12, fontSize: 16, color: "#64748B" },
+
+  clinicHeader: {
     flexDirection: "row",
     padding: 16,
+    borderBottomColor: "#E2E8F0",
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-    backgroundColor: "#FBFCFE",
   },
-  clinicImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    marginRight: 16,
-  },
-  clinicInfoContainer: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  clinicTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 8,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statItem: {
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#16A34A",
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: "#E2E8F0",
-    marginHorizontal: 12,
-  },
+  clinicImage: { width: 80, height: 80, borderRadius: 8, marginRight: 16 },
+  clinicInfo: { flex: 1, justifyContent: "center" },
+  clinicTitle: { fontSize: 20, fontWeight: "700", color: "#0F172A" },
+  statsRow: { flexDirection: "row", marginTop: 8, alignItems: "center" },
+  statItem: { flex: 1, alignItems: "center" },
+  statValue: { fontSize: 18, fontWeight: "700", color: "#16A34A" },
+  statLabel: { fontSize: 12, color: "#64748B" },
+  statDivider: { width: 1, height: 24, backgroundColor: "#E2E8F0" },
+
   dateContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    padding: 12,
+    borderBottomColor: "#E2E8F0",
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
   },
-  dateHeaderText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#0F172A",
-    marginBottom: 12,
-  },
-  dateList: {
-    paddingVertical: 4,
-  },
+  dateHeader: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
   dateOption: {
     width: 60,
     height: 70,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
     marginRight: 8,
+    borderRadius: 8,
     backgroundColor: "#F8FAFC",
-    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
     borderColor: "#E2E8F0",
+    borderWidth: 1,
   },
   selectedDateOption: {
     backgroundColor: "#16A34A",
     borderColor: "#16A34A",
   },
-  dateDay: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#64748B",
-    marginBottom: 4,
-  },
-  dateNumber: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  selectedDateText: {
-    color: "#FFFFFF",
-  },
+  dateDay: { fontSize: 12, color: "#64748B" },
+  dateNumber: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
+  selectedDateText: { color: "#fff" },
+
   filterContainer: {
     flexDirection: "row",
     padding: 12,
+    borderBottomColor: "#E2E8F0",
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
   },
   filterButton: {
     flex: 1,
     paddingVertical: 8,
     alignItems: "center",
-    borderRadius: 8,
     marginHorizontal: 4,
-    borderWidth: 1,
+    borderRadius: 8,
     borderColor: "#E2E8F0",
+    borderWidth: 1,
   },
   filterButtonActive: {
     backgroundColor: "#EAF5EA",
     borderColor: "#16A34A",
   },
-  filterText: {
-    fontSize: 14,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-  filterTextActive: {
-    color: "#16A34A",
-    fontWeight: "600",
-  },
+  filterText: { fontSize: 14, color: "#64748B" },
+  filterTextActive: { color: "#16A34A", fontWeight: "600" },
+
   slotCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    margin: 16,
     padding: 16,
-    marginHorizontal: 16,
     borderRadius: 12,
     backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  slotInfo: {
-    flex: 1,
-  },
-  time: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  duration: {
-    fontSize: 14,
-    color: "#64748B",
-    marginBottom: 6,
-  },
+  slotInfo: { flex: 1 },
+  time: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
+  duration: { fontSize: 14, color: "#64748B", marginVertical: 4 },
   availabilityBadge: {
-    alignSelf: "flex-start",
-    paddingVertical: 4,
     paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
     backgroundColor: "#E0F2E9",
   },
-  fullBadge: {
-    backgroundColor: "#FEF2F2",
-  },
-  bookedBadge: {
-    backgroundColor: "#EFF6FF",
-  },
-  availabilityText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#16A34A",
-  },
+  fullBadge: { backgroundColor: "#FEF2F2" },
+  bookedBadge: { backgroundColor: "#EFF6FF" },
+  availabilityText: { fontSize: 12, fontWeight: "500", color: "#16A34A" },
+
   btn: {
-    backgroundColor: "#16A34A",
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    paddingHorizontal: 20,
     borderRadius: 8,
-    minWidth: 100,
-    alignItems: "center",
-  },
-  btnFull: {
-    backgroundColor: "#E2E8F0",
-  },
-  btnBooked: {
-    backgroundColor: "#3B82F6",
-  },
-  btnDisabled: {
-    backgroundColor: "#94A3B8",
-    opacity: 0.7,
-  },
-  btnText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    marginTop: 40,
-  },
-  emptyImage: {
-    width: 120,
-    height: 120,
-    marginBottom: 16,
-    opacity: 0.7,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: "#64748B",
-    textAlign: "center",
-    marginBottom: 24,
-    maxWidth: windowWidth * 0.7,
-  },
-  emptyButton: {
     backgroundColor: "#16A34A",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
   },
-  emptyButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  btnFull: { backgroundColor: "#E2E8F0" },
+  btnBooked: { backgroundColor: "#3B82F6" },
+  btnDisabled: { opacity: 0.6 },
+  btnText: { color: "#fff", fontWeight: "700" },
+
+  emptyContainer: { alignItems: "center", marginTop: 40 },
+  emptyTitle: { fontSize: 18, color: "#64748B" },
 });

@@ -251,36 +251,36 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     }
   };
 
-  const toggleBusinessStatus = async () => {
-    const newStatus = status === "open" ? "closed" : "open";
-    setLoading(true);
-    try {
-      const businessRef = doc(db, "businesses", business.business_id);
-      await updateDoc(businessRef, { status: newStatus });
+  // const toggleBusinessStatus = async () => {
+  //   const newStatus = status === "open" ? "closed" : "open";
+  //   setLoading(true);
+  //   try {
+  //     const businessRef = doc(db, "businesses", business.business_id);
+  //     await updateDoc(businessRef, { status: newStatus });
 
-      // Log this activity
-      const activityRef = collection(
-        db,
-        "businesses",
-        business.business_id,
-        "activity"
-      );
-      await addDoc(activityRef, {
-        type: "status_change",
-        message: `Business status changed to ${newStatus}`,
-        timestamp: serverTimestamp(),
-      });
+  //     // Log this activity
+  //     const activityRef = collection(
+  //       db,
+  //       "businesses",
+  //       business.business_id,
+  //       "activity"
+  //     );
+  //     await addDoc(activityRef, {
+  //       type: "status_change",
+  //       message: `Business status changed to ${newStatus}`,
+  //       timestamp: serverTimestamp(),
+  //     });
 
-      setStatus(newStatus);
-      Alert.alert("Status Updated", `Business is now marked as ${newStatus}`);
-      setRefreshing(true);
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      Alert.alert("Error", "Failed to update business status");
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     setStatus(newStatus);
+  //     Alert.alert("Status Updated", `Business is now marked as ${newStatus}`);
+  //     setRefreshing(true);
+  //   } catch (err) {
+  //     console.error("Failed to update status:", err);
+  //     Alert.alert("Error", "Failed to update business status");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     setLoading(true);
@@ -461,7 +461,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
             <Text style={styles.header}>Welcome Back!</Text>
             <Text style={styles.subHeader}>{business.name}</Text>
           </View>
-          <View style={styles.statusIndicator}>
+          {/* <View style={styles.statusIndicator}>
             <Text style={styles.statusLabel}>
               {status === "open" ? "🟢 Open" : "🔴 Closed"}
             </Text>
@@ -473,7 +473,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
                 {status === "open" ? "Close" : "Open"}
               </Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
       </LinearGradient>
 

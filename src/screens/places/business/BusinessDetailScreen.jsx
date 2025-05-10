@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   StatusBar,
+  Alert,
   Pressable,
 } from "react-native";
 import { getAuth } from "firebase/auth";
@@ -14,6 +15,7 @@ import OwnerDashboard from "./components/OwnerDashboard";
 import EmployeeDashboard from "./components/EmployeeDashboard";
 import VisitorView from "./components/VisitorView";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../../../../backend/firebase"; // Adjust the import path as needed
 // Define theme colors
 const COLORS = {
@@ -34,6 +36,7 @@ const BusinessDetailScreen = ({ route, navigation }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Set up the header title
@@ -65,6 +68,28 @@ const BusinessDetailScreen = ({ route, navigation }) => {
 
     setLoading(false);
   }, [business, navigation]);
+
+  useEffect(() => {
+    const fetchAdminStatus = async () => {
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) {
+        console.log("User not signed in yet");
+        return;
+      }
+
+      // console.log("Fetching admin status...");
+      const snap = await getDoc(doc(db, "user", currentUser.uid));
+      if (snap.exists()) {
+        const admin = snap.data()?.isAdmin === true;
+        // console.log("Admin status:", admin);
+        setIsAdmin(admin);
+      } else {
+        console.log("No user document found");
+      }
+    };
+
+    fetchAdminStatus();
+  }, []);
 
   useEffect(() => {
     const recordVisit = async () => {
@@ -180,6 +205,39 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         {/* {renderTabButton("info", "Information")} */}
         {role === "owner" && renderTabButton("payroll", "Payroll")}
       </View>
+
+      {isAdmin && business.status === "pending_approval" && (
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              await updateDoc(doc(db, "businesses", business.docId), {
+                status: "approved",
+              });
+
+              Alert.alert(
+                "Business Approved",
+                "The business has been approved."
+              );
+              navigation.goBack(); // Or refresh if needed
+            } catch (err) {
+              console.error("Approval error:", err);
+              Alert.alert("Error", "Failed to approve business.");
+            }
+          }}
+          style={{
+            backgroundColor: COLORS.success,
+            marginHorizontal: 20,
+            paddingVertical: 12,
+            borderRadius: 10,
+            marginVertical: 10,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>
+            Approve Business
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Content Area - No ScrollView wrapper to avoid nesting issues */}
       <View style={styles.contentContainer}>

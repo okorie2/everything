@@ -1,103 +1,100 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Linking,
   Alert,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { db, auth } from "../../../../../backend/firebase";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 const VisitorView = ({ business }) => {
-  const handleBookAppointment = async () => {
-    const userId = auth.currentUser.uid;
-    const clinicId = business.id;
-    const slotId = "selectedSlotId"; // Replace with the selected slot ID
-    const slotStart = new Date(); // Example of slot start time
+  const [date, setDate] = useState(new Date());
+  const [mode, setMode] = useState("date");
+  const [showPicker, setShowPicker] = useState(false);
 
-    // Create the appointment in Firestore
-    const appointmentRef = doc(collection(db, "appointments"));
-    const appointmentData = {
-      userId,
-      clinicianId: business.clinician_id,
-      slotId,
-      start: Timestamp.fromDate(slotStart),
+  const showDatePicker = () => {
+    setMode("date");
+    setShowPicker(true);
+  };
+
+  const showTimePicker = () => {
+    setMode("time");
+    setShowPicker(true);
+  };
+
+  const handleChange = (event, selectedDate) => {
+    if (Platform.OS === "android") {
+      setShowPicker(false);
+    }
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
+
+  const handleBookAppointment = async () => {
+    const user = auth.currentUser;
+    if (!user) return Alert.alert("Please sign in to book.");
+
+    const startTime = Timestamp.fromDate(date);
+    const endTime = Timestamp.fromDate(
+      new Date(date.getTime() + 30 * 60 * 1000)
+    );
+
+    const appointment = {
+      userId: user.uid,
+      clinicianId: business.owner_id,
+      businessId: business.id,
+      start: startTime,
+      end: endTime,
       status: "pending",
       createdAt: Timestamp.now(),
     };
 
     try {
-      await setDoc(appointmentRef, appointmentData);
-      Alert.alert("Success", "Appointment booked successfully!");
-
-      // Optionally, update calendars for both the user and clinician here.
-    } catch (error) {
-      console.error("Error booking appointment:", error);
-      Alert.alert("Error", "Failed to book appointment");
-    }
-  };
-
-  const handleEmail = () => {
-    if (business.contact_info?.email) {
-      Linking.openURL(`mailto:${business.contact_info.email}`);
-    } else {
-      Alert.alert("No email contact available.");
-    }
-  };
-
-  const handleCall = () => {
-    if (business.contact_info?.phone) {
-      Linking.openURL(`tel:${business.contact_info.phone}`);
-    } else {
-      Alert.alert("No phone contact available.");
+      await addDoc(collection(db, "appointments"), appointment);
+      Alert.alert("Success", "Appointment booked.");
+    } catch (err) {
+      console.error("Booking failed:", err);
+      Alert.alert("Error", "Could not book appointment.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.name}>{business.name}</Text>
-        <Text style={styles.category}>{business.category}</Text>
-      </View>
-      
-      <View style={styles.contentSection}>
-        <Text style={styles.address}>{business.address}</Text>
-        <Text style={styles.description}>{business.description}</Text>
-      </View>
+      <Text style={styles.name}>{business.name}</Text>
+      <Text style={styles.category}>{business.category}</Text>
 
-      <View style={styles.contactSection}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
-        <View style={styles.contactDetail}>
-          <Text style={styles.contactLabel}>Email:</Text>
-          <Text style={styles.contactText}>{business.contact_info?.email || "N/A"}</Text>
-        </View>
-        <View style={styles.contactDetail}>
-          <Text style={styles.contactLabel}>Phone:</Text>
-          <Text style={styles.contactText}>{business.contact_info?.phone || "N/A"}</Text>
-        </View>
-      </View>
+      <TouchableOpacity style={styles.button} onPress={showDatePicker}>
+        <Text style={styles.buttonText}>Select Date</Text>
+      </TouchableOpacity>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.primaryButton} onPress={handleBookAppointment}>
-          <Text style={styles.buttonText}>Book Appointment</Text>
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={showTimePicker}>
+        <Text style={styles.buttonText}>Select Time</Text>
+      </TouchableOpacity>
 
-        <View style={styles.secondaryButtonsRow}>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleEmail}
-          >
-            <Text style={styles.secondaryButtonText}>Send Email</Text>
-          </TouchableOpacity>
+      <Text style={styles.selectedDate}>
+        {date.toLocaleDateString()} {date.toLocaleTimeString()}
+      </Text>
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleCall}
-          >
-            <Text style={styles.secondaryButtonText}>Call</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <TouchableOpacity
+        style={styles.bookButton}
+        onPress={handleBookAppointment}
+      >
+        <Text style={styles.bookButtonText}>Book Appointment</Text>
+      </TouchableOpacity>
+
+      {showPicker && (
+        <DateTimePicker
+          value={date}
+          mode={mode}
+          display="default"
+          onChange={handleChange}
+        />
+      )}
     </View>
   );
 };
@@ -108,98 +105,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    backgroundColor: "#ffffff",
-  },
-  header: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    paddingBottom: 16,
-    marginBottom: 20,
+    backgroundColor: "#fff",
   },
   name: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "700",
-    color: "#333333",
-    marginBottom: 6,
+    color: "#1a2a6c",
+    marginBottom: 8,
   },
   category: {
     fontSize: 16,
-    color: "#888888",
+    color: "#888",
+    marginBottom: 20,
   },
-  contentSection: {
-    marginBottom: 24,
-  },
-  address: {
-    fontSize: 15,
-    color: "#666666",
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#444444",
-  },
-  contactSection: {
-    backgroundColor: "#f9f9f9",
-    padding: 16,
+  button: {
+    backgroundColor: "#eee",
+    padding: 14,
     borderRadius: 8,
-    marginBottom: 24,
+    marginBottom: 10,
+    alignItems: "center",
   },
-  sectionTitle: {
-    fontSize: 18,
+  buttonText: {
     fontWeight: "600",
-    color: "#333333",
-    marginBottom: 12,
+    color: "#333",
   },
-  contactDetail: {
-    flexDirection: "row",
-    marginBottom: 8,
+  selectedDate: {
+    fontSize: 16,
+    textAlign: "center",
+    marginVertical: 16,
+    color: "#444",
   },
-  contactLabel: {
-    fontSize: 15,
-    color: "#666666",
-    width: 60,
-  },
-  contactText: {
-    fontSize: 15,
-    color: "#444444",
-    flex: 1,
-  },
-  buttonContainer: {
-    marginTop: 8,
-  },
-  primaryButton: {
+  bookButton: {
     backgroundColor: "#FF8008",
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginTop: 20,
   },
-  buttonText: {
-    color: "#ffffff",
+  bookButtonText: {
+    color: "#fff",
     fontWeight: "600",
     fontSize: 16,
-  },
-  secondaryButtonsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  secondaryButton: {
-    flex: 0.48,
-    backgroundColor: "#ffffff",
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  secondaryButtonText: {
-    color: "#555555",
-    fontWeight: "500",
   },
 });

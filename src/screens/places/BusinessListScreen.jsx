@@ -33,13 +33,14 @@ const COLORS = {
   border: "#f0f0f0",
 };
 
-const BusinessListScreen = ({ navigation }) => {
+const BusinessListScreen = ({ navigation, route }) => {
+  const initialFilter = route?.params?.initialFilter || "All"; // Default to "All"
   const [businesses, setBusinesses] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState(initialFilter);
 
   const auth = getAuth();
 
@@ -55,7 +56,7 @@ const BusinessListScreen = ({ navigation }) => {
       );
       const approvedSnap = await getDocs(approvedQ);
       const approved = approvedSnap.docs.map((d) => ({
-        id: d.id,
+        id: `approved-${d.id}`,
         ...d.data(),
       }));
 
@@ -67,14 +68,24 @@ const BusinessListScreen = ({ navigation }) => {
           where("owner_id", "==", uid)
         );
         const mineSnap = await getDocs(mineQ);
-        mine = mineSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        mine = mineSnap.docs.map((d) => ({
+          id: `mine-${d.id}`,
+          ...d.data(),
+        }));
       }
 
       const merged = [...approved, ...mine].filter(
         (b) => b.name !== "Bethel City Hospital"
       );
       setBusinesses(merged);
-      setFiltered(merged);
+
+      // 👇 Apply initial filter after setting businesses
+      let initiallyFiltered = merged;
+      if (initialFilter !== "All") {
+        initiallyFiltered = merged.filter((b) => b.category === initialFilter);
+      }
+      setFiltered(initiallyFiltered);
+      setActiveFilter(initialFilter);
     } catch (err) {
       console.error("BUSINESS QUERY ERROR →", err);
     } finally {
@@ -133,9 +144,9 @@ const BusinessListScreen = ({ navigation }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterScroll}
       >
-        {categories.map((category) => (
+        {categories.map((category, index) => (
           <TouchableOpacity
-            key={category}
+            key={`${category}-${index}`}
             style={[
               styles.filterButton,
               activeFilter === category && styles.activeFilterButton,

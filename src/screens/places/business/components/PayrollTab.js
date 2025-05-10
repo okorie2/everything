@@ -118,11 +118,20 @@ export default function PayrollTab({ business, payPeriod }) {
         </Text>
       </View>
 
-      <FlatList
-        data={rows}
-        renderItem={renderRow}
-        keyExtractor={(i) => i.uid}
-      />
+      {rows.map((item) => (
+        <View key={item.uid} style={{ flexDirection: "row", marginBottom: 6 }}>
+          <Text style={{ flex: 2 }}>{item.name}</Text>
+          <Text style={{ flex: 1, textAlign: "right" }}>
+            {item.hours.toFixed(2)}
+          </Text>
+          <Text style={{ flex: 1, textAlign: "right" }}>
+            {item.rate.toFixed(2)}
+          </Text>
+          <Text style={{ flex: 1, textAlign: "right" }}>
+            {(item.hours * item.rate).toFixed(2)}
+          </Text>
+        </View>
+      ))}
 
       <TouchableOpacity
         onPress={lockAndExport}

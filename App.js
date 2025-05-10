@@ -32,6 +32,7 @@ import { Platform, StatusBar } from "react-native";
 import AppointmentNavigator from "./src/navigations/AppointmentNavigator"; // adjust if needed
 import CalendarScreen from "./src/screens/calendar/CalendarScreen";
 import QueueDetailScreen from "./src/screens/hospital/QueueDetailScreen";
+import CityServicesScreen from "./src/screens/CityServicesScreen";
 
 const ChatScreen = () => (
   <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -208,6 +209,8 @@ const AppNavigator = () => {
       <Stack.Screen name="Appointment" component={AppointmentNavigator} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="QueueDetail" component={QueueDetailScreen} />
+
+      <Stack.Screen name="CityServices" component={CityServicesScreen} />
     </Stack.Navigator>
   );
 };

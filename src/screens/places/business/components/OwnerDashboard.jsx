@@ -32,6 +32,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import ManageEmployees from "./ManageEmployees";
 import PayrollTab from "./PayrollTab";
 import SnapshotCards from "./SnapshotCards"; // Adjust the import path as necessary
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const windowWidth = Dimensions.get("window").width;
 
@@ -40,7 +41,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     title: "",
     description: "",
     priority: "medium",
-    due_date: Timestamp.fromDate(new Date("")),
+    due_date: new Date(),
   });
 
   const [tasks, setTasks] = useState([]);
@@ -55,6 +56,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const priorityItems = [
     { label: "High Priority", value: "high" },
@@ -522,6 +524,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
               <Text style={styles.label}>Priority</Text>
               <DropDownPicker
+                listMode="SCROLLVIEW"
                 open={priorityDropdownOpen}
                 setOpen={setPriorityDropdownOpen}
                 items={priorityItems}
@@ -537,17 +540,32 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
               />
 
               <Text style={styles.label}>Due Date</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={taskForm.dueDate}
-                onChangeText={(text) =>
-                  setTaskForm({ ...taskForm, dueDate: text })
-                }
-              />
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={{ color: "#333" }}>
+                  {taskForm.due_date.toISOString().split("T")[0]}
+                </Text>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={taskForm.due_date}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) {
+                      setTaskForm({ ...taskForm, due_date: selectedDate });
+                    }
+                  }}
+                />
+              )}
 
               <Text style={styles.label}>Assign to</Text>
               <DropDownPicker
+                listMode="SCROLLVIEW"
                 open={employeeDropdownOpen}
                 setOpen={setEmployeeDropdownOpen}
                 items={employeeItems}
@@ -596,7 +614,12 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
               <Text style={styles.sectionTitle}>Task Management</Text>
             </View>
 
-            <View style={styles.filterContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContainer}
+              style={styles.filterContainer}
+            >
               <TouchableOpacity
                 style={[
                   styles.filterButton,
@@ -664,7 +687,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
                   Approved
                 </Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
 
             {loading && filteredTasks.length > 0 ? (
               <ActivityIndicator

@@ -13,7 +13,8 @@ import { getAuth } from "firebase/auth";
 import OwnerDashboard from "./components/OwnerDashboard";
 import EmployeeDashboard from "./components/EmployeeDashboard";
 import VisitorView from "./components/VisitorView";
-
+import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { db, auth } from "../../../../backend/firebase"; // Adjust the import path as needed
 // Define theme colors
 const COLORS = {
   primary: "#FF8008", // Orange - active primary
@@ -64,6 +65,23 @@ const BusinessDetailScreen = ({ route, navigation }) => {
 
     setLoading(false);
   }, [business, navigation]);
+
+  useEffect(() => {
+    const recordVisit = async () => {
+      try {
+        await addDoc(collection(db, "user_activity"), {
+          userId: auth.currentUser.uid,
+          type: "visit",
+          businessId: business.id,
+          timestamp: Timestamp.now(),
+        });
+      } catch (e) {
+        console.error("Error logging visit:", e);
+      }
+    };
+
+    recordVisit();
+  }, []);
 
   const renderTabButton = (tabName, label, icon) => {
     const isActive = activeTab === tabName;
@@ -134,24 +152,24 @@ const BusinessDetailScreen = ({ route, navigation }) => {
 
       {/* Business Header */}
       <View style={styles.businessHeader}>
-  <View style={styles.headerTopRow}>
-    <Pressable
-      style={styles.backButton}
-      onPress={handleGoBack}
-      android_ripple={{
-        color: "rgba(0,0,0,0.1)",
-        borderless: true,
-      }}
-    >
-      <Text style={styles.backButtonText}>←</Text>
-    </Pressable>
-    <View style={styles.businessInfo}>
-      <Text style={styles.businessName}>{business.name}</Text>
-      <Text style={styles.businessCategory}>{business.category}</Text>
-      {renderRoleBadge()}
-    </View>
-  </View>
-</View>
+        <View style={styles.headerTopRow}>
+          <Pressable
+            style={styles.backButton}
+            onPress={handleGoBack}
+            android_ripple={{
+              color: "rgba(0,0,0,0.1)",
+              borderless: true,
+            }}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </Pressable>
+          <View style={styles.businessInfo}>
+            <Text style={styles.businessName}>{business.name}</Text>
+            <Text style={styles.businessCategory}>{business.category}</Text>
+            {renderRoleBadge()}
+          </View>
+        </View>
+      </View>
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -159,7 +177,7 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         {role === "owner" && renderTabButton("manage", "Manage")}
         {(role === "owner" || role === "employee") &&
           renderTabButton("analytics", "Analytics")}
-        {renderTabButton("info", "Information")}
+        {/* {renderTabButton("info", "Information")} */}
         {role === "owner" && renderTabButton("payroll", "Payroll")}
       </View>
 

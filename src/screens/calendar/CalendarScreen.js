@@ -156,6 +156,51 @@ export default function CalendarScreen({ navigation }) {
   const goToToday = () => setSelectedDate(new Date());
 
   // Event press
+  // ...existing code...
+
+  // const handleEventPress = (event) => {
+  //   // Get current date and event date with time set to midnight for proper comparison
+  //   const today = new Date();
+  //   today.setHours(0, 0, 0, 0);
+
+  //   const eventDate = new Date(event.start);
+  //   eventDate.setHours(0, 0, 0, 0);
+
+  //   // Compare dates using getTime() for accurate comparison
+  //   const isToday = eventDate.getTime() === today.getTime();
+
+  //   if (event.clinicianId === uid) {
+  //     Alert.alert(
+  //       event.status === "booked" ? "Booked Appointment" : "Open Slot",
+  //       `Clinic: ${event.clinicName}\nTime: ${formatTime(
+  //         event.start
+  //       )} – ${formatTime(event.end)}\nPatients: ${event.patientCount}`,
+  //       [
+  //         { text: "Cancel", style: "cancel" },
+  //         ...(isToday
+  //           ? [
+  //               {
+  //                 text: "View Details",
+  //                 onPress: () =>
+  //                   navigation.navigate("QueueDetail", {
+  //                     slotPath: event.slotPath,
+  //                   }),
+  //               },
+  //             ]
+  //           : []),
+  //       ]
+  //     );
+  //   } else {
+  //     Alert.alert(
+  //       "My Appointment",
+  //       `Clinic: ${event.clinicName}\nTime: ${formatTime(
+  //         event.start
+  //       )} – ${formatTime(event.end)}`,
+  //       [{ text: "Close", style: "cancel" }]
+  //     );
+  //   }
+  // };
+
   const handleEventPress = (event) => {
     if (event.clinicianId === uid) {
       Alert.alert(
@@ -193,6 +238,8 @@ export default function CalendarScreen({ navigation }) {
       );
     }
   };
+
+  // ...existing code...
 
   // Custom cell
   const renderEventCell = (evt) => (

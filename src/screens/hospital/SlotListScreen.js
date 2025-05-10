@@ -13,18 +13,20 @@ import {
   Image,
   Animated,
   Dimensions,
+  Platform,
+  ToastAndroid,
 } from "react-native";
 import {
   collection,
   query,
   where,
   orderBy,
-  getDocs,
   onSnapshot,
+  getDoc,
   updateDoc,
   arrayUnion,
+  arrayRemove,
   Timestamp,
-  doc,
 } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
 import {
@@ -53,20 +55,20 @@ export default function SlotListScreen({ route, navigation }) {
 
   const userId = auth.currentUser?.uid;
 
-  // Prepare next 14 days for the date-picker
+  // Next 14 days for date-picker
   const dateOptions = useMemo(
     () => Array.from({ length: 14 }, (_, i) => addDays(new Date(), i)),
     []
   );
 
-  // Format the "Today / Tomorrow / Wed, Jul 7" header
+  // Header label
   const formatDateHeader = useCallback((d) => {
     if (isToday(d)) return "Today";
     if (isTomorrow(d)) return "Tomorrow";
     return format(d, "EEE, MMM d");
   }, []);
 
-  // Build a Firestore query **for the selectedDate** and subscribe in real-time
+  // Real-time listener for slots on selectedDate
   const setupRealtimeListener = useCallback(() => {
     const start = startOfDay(selectedDate);
     const end = endOfDay(selectedDate);
@@ -79,7 +81,7 @@ export default function SlotListScreen({ route, navigation }) {
       orderBy("start")
     );
 
-    const unsub = onSnapshot(
+    return onSnapshot(
       q,
       (snap) => {
         setError(null);
@@ -99,46 +101,39 @@ export default function SlotListScreen({ route, navigation }) {
         setRefreshing(false);
       }
     );
-
-    return unsub;
   }, [clinicId, selectedDate]);
 
-  // Initial + whenever selectedDate changes
+  // Hook into that listener
   useEffect(() => {
     setLoading(true);
     const unsubscribe = setupRealtimeListener();
-
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
       useNativeDriver: true,
     }).start();
-
     return unsubscribe;
   }, [setupRealtimeListener]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    // we already have a real-time listener, so just clear the flag
+    // real-time will update
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  // Filter for morning/afternoon/evening
+  // Filter by time of day
   const filteredSlots = useMemo(() => {
-    let out = slots;
-    if (filterOption !== "all") {
-      out = out.filter((s) => {
-        const hr = s.start.toDate().getHours();
-        if (filterOption === "morning") return hr >= 6 && hr < 12;
-        if (filterOption === "afternoon") return hr >= 12 && hr < 17;
-        if (filterOption === "evening") return hr >= 17 && hr < 23;
-        return true;
-      });
-    }
-    return out;
+    if (filterOption === "all") return slots;
+    return slots.filter((s) => {
+      const hr = s.start.toDate().getHours();
+      if (filterOption === "morning") return hr >= 6 && hr < 12;
+      if (filterOption === "afternoon") return hr >= 12 && hr < 17;
+      if (filterOption === "evening") return hr >= 17 && hr < 23;
+      return true;
+    });
   }, [slots, filterOption]);
 
-  // Availability stats
+  // Stats
   const availabilityStats = useMemo(() => {
     const total = filteredSlots.length;
     const available = filteredSlots.filter(
@@ -151,7 +146,7 @@ export default function SlotListScreen({ route, navigation }) {
     };
   }, [filteredSlots]);
 
-  // Booking action
+  // Reserve
   const bookSlot = async (slot) => {
     if (!userId) {
       return Alert.alert("Please log in", "You need to be signed in to book.", [
@@ -162,8 +157,7 @@ export default function SlotListScreen({ route, navigation }) {
     setBookingInProgress(true);
 
     try {
-      // Re-fetch to avoid race
-      const snap = await slot.ref.get();
+      const snap = await getDoc(slot.ref);
       const data = snap.data();
       if ((data.booked ?? []).length >= data.capacity) {
         throw new Error("Slot is full");
@@ -172,13 +166,18 @@ export default function SlotListScreen({ route, navigation }) {
         booked: arrayUnion(userId),
         lastUpdated: Timestamp.now(),
       });
-      Alert.alert("Booked!", "Your appointment is confirmed.");
-      navigation.navigate("AppointmentConfirmation", {
-        clinicTitle,
-        appointmentTime: slot.start.toDate(),
-        appointmentId: slot.id,
-        clinicId,
-      });
+      // update locally
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.id === slot.id ? { ...s, booked: [...(s.booked ?? []), userId] } : s
+        )
+      );
+      const msg = "Appointment booked!";
+      if (Platform.OS === "android") {
+        ToastAndroid.show(msg, ToastAndroid.SHORT);
+      } else {
+        Alert.alert("Success", msg);
+      }
     } catch (e) {
       console.error(e);
       Alert.alert("Could not book", e.message || "Try again later.");
@@ -187,7 +186,42 @@ export default function SlotListScreen({ route, navigation }) {
     }
   };
 
-  // Date‐picker header
+  // Cancel
+  const cancelSlot = async (slot) => {
+    if (!userId) return;
+    if (bookingInProgress) return;
+    setBookingInProgress(true);
+
+    try {
+      const snap = await getDoc(slot.ref);
+      const data = snap.data();
+      if (!(data.booked ?? []).includes(userId)) {
+        throw new Error("You’re not booked here");
+      }
+      await updateDoc(slot.ref, {
+        booked: arrayRemove(userId),
+        lastUpdated: Timestamp.now(),
+      });
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.id === slot.id
+            ? {
+                ...s,
+                booked: (s.booked ?? []).filter((u) => u !== userId),
+              }
+            : s
+        )
+      );
+      Alert.alert("Cancelled", "Your reservation has been cancelled.");
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Could not cancel", e.message || "Try again later.");
+    } finally {
+      setBookingInProgress(false);
+    }
+  };
+
+  // Date picker item
   const renderDateOption = ({ item }) => {
     const isSel =
       item.getDate() === selectedDate.getDate() &&
@@ -207,7 +241,7 @@ export default function SlotListScreen({ route, navigation }) {
     );
   };
 
-  // Time‐of‐day filter buttons
+  // Time-of-day filters
   const renderTimeFilter = () => (
     <View style={styles.filterContainer}>
       {["all", "morning", "afternoon", "evening"].map((opt) => (
@@ -241,6 +275,7 @@ export default function SlotListScreen({ route, navigation }) {
     const spotsLeft = item.capacity - bookedCount;
     const isFull = spotsLeft <= 0;
     const isBooked = (item.booked ?? []).includes(userId);
+
     return (
       <Animated.View style={[styles.slotCard, { opacity: fadeAnim }]}>
         <View style={styles.slotInfo}>
@@ -253,11 +288,11 @@ export default function SlotListScreen({ route, navigation }) {
               isBooked && styles.bookedBadge,
             ]}
           >
-            <Text 
+            <Text
               style={[
                 styles.availabilityText,
                 isFull && styles.fullText,
-                isBooked && styles.bookedText
+                isBooked && styles.bookedText,
               ]}
             >
               {isBooked
@@ -268,23 +303,18 @@ export default function SlotListScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
+
         <TouchableOpacity
           style={[
             styles.btn,
-            isFull && styles.btnFull,
-            isBooked && styles.btnBooked,
+            isBooked ? styles.btnBooked : isFull ? styles.btnFull : null,
             bookingInProgress && styles.btnDisabled,
           ]}
-          disabled={isFull || isBooked || bookingInProgress}
-          onPress={() => bookSlot(item)}
+          disabled={bookingInProgress}
+          onPress={() => (isBooked ? cancelSlot(item) : bookSlot(item))}
         >
-          <Text 
-            style={[
-              styles.btnText,
-              isFull && styles.btnTextFull
-            ]}
-          >
-            {isBooked ? "✓ Booked" : isFull ? "Full" : "Book"}
+          <Text style={[styles.btnText, isFull && styles.btnTextFull]}>
+            {isBooked ? "Cancel" : isFull ? "Full" : "Reserve"}
           </Text>
         </TouchableOpacity>
       </Animated.View>
@@ -299,7 +329,7 @@ export default function SlotListScreen({ route, navigation }) {
     </View>
   );
 
-  // Loading/Error
+  // Loading / Error
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
@@ -310,13 +340,12 @@ export default function SlotListScreen({ route, navigation }) {
       </SafeAreaView>
     );
   }
-  
   if (error && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={() => setupRealtimeListener()}
           >
@@ -384,9 +413,9 @@ export default function SlotListScreen({ route, navigation }) {
         ListEmptyComponent={ListEmpty}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             colors={["#FF8008"]}
             tintColor="#FF8008"
           />
@@ -395,11 +424,10 @@ export default function SlotListScreen({ route, navigation }) {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#ffffff" 
+  container: {
+    flex: 1,
+    backgroundColor: "#ffffff",
   },
   loadingContainer: {
     flex: 1,
@@ -407,9 +435,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-  loadingText: { 
-    marginTop: 12, 
-    fontSize: 16, 
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
     color: "#64748b",
     fontWeight: "500",
   },
@@ -439,7 +467,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 20,
   },
-  
+
   // Clinic Header
   clinicHeader: {
     flexDirection: "row",
@@ -448,43 +476,43 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
   },
-  clinicImage: { 
-    width: 70, 
-    height: 70, 
-    borderRadius: 12, 
-    marginRight: 16 
+  clinicImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 12,
+    marginRight: 16,
   },
-  clinicInfo: { 
-    flex: 1, 
-    justifyContent: "center" 
+  clinicInfo: {
+    flex: 1,
+    justifyContent: "center",
   },
-  clinicTitle: { 
-    fontSize: 20, 
-    fontWeight: "700", 
+  clinicTitle: {
+    fontSize: 20,
+    fontWeight: "700",
     color: "#0f172a",
     marginBottom: 8,
   },
-  statsRow: { 
-    flexDirection: "row", 
+  statsRow: {
+    flexDirection: "row",
     alignItems: "center",
     marginTop: 4,
   },
-  statItem: { 
+  statItem: {
     flex: 1,
   },
-  statValue: { 
-    fontSize: 18, 
-    fontWeight: "700", 
-    color: "#FF8008" 
+  statValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FF8008",
   },
-  statLabel: { 
-    fontSize: 13, 
+  statLabel: {
+    fontSize: 13,
     color: "#64748b",
     marginTop: 2,
   },
-  statDivider: { 
-    width: 1, 
-    height: 30, 
+  statDivider: {
+    width: 1,
+    height: 30,
     backgroundColor: "#e2e8f0",
     marginHorizontal: 12,
   },
@@ -497,11 +525,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
   },
-  dateHeader: { 
-    fontSize: 17, 
+  dateHeader: {
+    fontSize: 17,
     fontWeight: "600",
     color: "#0f172a",
-    marginBottom: 12 
+    marginBottom: 12,
   },
   dateList: {
     paddingVertical: 4,
@@ -526,18 +554,18 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  dateDay: { 
-    fontSize: 13, 
+  dateDay: {
+    fontSize: 13,
     color: "#64748b",
     marginBottom: 4,
   },
-  dateNumber: { 
-    fontSize: 18, 
-    fontWeight: "700", 
-    color: "#0f172a" 
+  dateNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
   },
-  selectedDateText: { 
-    color: "#ffffff" 
+  selectedDateText: {
+    color: "#ffffff",
   },
 
   // Time Filters
@@ -563,14 +591,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0f2fe",
     borderColor: "#FF8008",
   },
-  filterText: { 
-    fontSize: 14, 
+  filterText: {
+    fontSize: 14,
     color: "#64748b",
     fontWeight: "500",
   },
-  filterTextActive: { 
-    color: "#FF8008", 
-    fontWeight: "600" 
+  filterTextActive: {
+    color: "#FF8008",
+    fontWeight: "600",
   },
 
   // Slot Cards
@@ -591,19 +619,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#f1f5f9",
   },
-  slotInfo: { 
-    flex: 1 
+  slotInfo: {
+    flex: 1,
   },
-  time: { 
-    fontSize: 18, 
-    fontWeight: "700", 
+  time: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#0f172a",
     marginBottom: 4,
   },
-  duration: { 
-    fontSize: 14, 
-    color: "#64748b", 
-    marginBottom: 8 
+  duration: {
+    fontSize: 14,
+    color: "#64748b",
+    marginBottom: 8,
   },
   availabilityBadge: {
     paddingHorizontal: 10,
@@ -612,22 +640,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0f2fe",
     alignSelf: "flex-start",
   },
-  fullBadge: { 
-    backgroundColor: "#fee2e2" 
+  fullBadge: {
+    backgroundColor: "#fee2e2",
   },
-  bookedBadge: { 
-    backgroundColor: "#dbeafe" 
+  bookedBadge: {
+    backgroundColor: "#dbeafe",
   },
-  availabilityText: { 
-    fontSize: 12, 
-    fontWeight: "600", 
-    color: "#FF8008" 
+  availabilityText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FF8008",
   },
   fullText: {
-    color: "#ef4444"
+    color: "#ef4444",
   },
   bookedText: {
-    color: "#FFA41B"
+    color: "#FFA41B",
   },
 
   // Action Button
@@ -639,17 +667,17 @@ const styles = StyleSheet.create({
     minWidth: 80,
     alignItems: "center",
   },
-  btnFull: { 
-    backgroundColor: "#f1f5f9" 
+  btnFull: {
+    backgroundColor: "#f1f5f9",
   },
-  btnBooked: { 
-    backgroundColor: "#FFA41B" 
+  btnBooked: {
+    backgroundColor: "#FFA41B",
   },
-  btnDisabled: { 
-    opacity: 0.6 
+  btnDisabled: {
+    opacity: 0.6,
   },
-  btnText: { 
-    color: "#ffffff", 
+  btnText: {
+    color: "#ffffff",
     fontWeight: "600",
     fontSize: 15,
   },
@@ -658,13 +686,13 @@ const styles = StyleSheet.create({
   },
 
   // Empty State
-  emptyContainer: { 
-    alignItems: "center", 
+  emptyContainer: {
+    alignItems: "center",
     marginTop: 60,
     padding: 20,
   },
-  emptyTitle: { 
-    fontSize: 18, 
+  emptyTitle: {
+    fontSize: 18,
     fontWeight: "600",
     color: "#64748b",
     marginBottom: 8,

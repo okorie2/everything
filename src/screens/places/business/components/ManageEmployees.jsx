@@ -78,7 +78,7 @@ export default function ManageEmployees({ business }) {
   const addSelectedEmployees = async () => {
     if (!selectedEmployees.length) return;
     setWorking(true);
-    
+
     try {
       // Add each selected employee
       for (const uid of selectedEmployees) {
@@ -86,33 +86,37 @@ export default function ManageEmployees({ business }) {
           employees: arrayUnion(uid),
         });
       }
-      
+
       toast(`${selectedEmployees.length} employee(s) added`);
       setSelectedEmployees([]);
     } catch (error) {
       toast("Error adding employees", false);
       console.error(error);
     }
-    
+
     setWorking(false);
   };
 
   const removeEmployee = (uid) =>
-    Alert.alert("Remove Employee", "Are you sure you want to remove this employee?", [
-      { text: "Cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: async () => {
-          setWorking(true);
-          await updateDoc(doc(db, "businesses", business.business_id), {
-            employees: arrayRemove(uid),
-          });
-          toast("Employee removed");
-          setWorking(false);
+    Alert.alert(
+      "Remove Employee",
+      "Are you sure you want to remove this employee?",
+      [
+        { text: "Cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setWorking(true);
+            await updateDoc(doc(db, "businesses", business.business_id), {
+              employees: arrayRemove(uid),
+            });
+            toast("Employee removed");
+            setWorking(false);
+          },
         },
-      },
-    ]);
+      ]
+    );
 
   const saveRole = async (uid, next) => {
     setWorking(true);
@@ -134,12 +138,12 @@ export default function ManageEmployees({ business }) {
     setEditingRate(null);
     const rStr = roleMap[uid + "_rate"] || "0";
     const rate = parseFloat(rStr);
-    
+
     if (isNaN(rate)) {
       toast("Please enter a valid number", false);
       return;
     }
-    
+
     setWorking(true);
     await setDoc(
       doc(db, "businesses", business.business_id, "roles", uid),
@@ -162,9 +166,9 @@ export default function ManageEmployees({ business }) {
     (business.employees || []).includes(u.value)
   );
 
-  const selectedEmployeeItems = selectedEmployees.map(uid => 
-    userOptions.find(u => u.value === uid)
-  ).filter(Boolean);
+  const selectedEmployeeItems = selectedEmployees
+    .map((uid) => userOptions.find((u) => u.value === uid))
+    .filter(Boolean);
 
   /* Employee card component */
   const EmployeeCard = ({ item }) => {
@@ -180,33 +184,31 @@ export default function ManageEmployees({ business }) {
             <Ionicons name="person" size={20} color="#555" />
             <Text style={s.userName}>{item.label}</Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[s.roleBtn, role === "manager" ? s.managerBtn : s.staffBtn]}
             onPress={() => saveRole(uid, next)}
           >
-            <Text style={s.roleBtnTxt}>
-              {role}
-            </Text>
-            <Ionicons 
-              name={role === "manager" ? "chevron-down" : "chevron-up"} 
-              size={14} 
-              color="#fff" 
+            <Text style={s.roleBtnTxt}>{role}</Text>
+            <Ionicons
+              name={role === "manager" ? "chevron-down" : "chevron-up"}
+              size={14}
+              color="#fff"
             />
           </TouchableOpacity>
         </View>
-        
+
         <View style={s.cardBody}>
           <View style={s.rateContainer}>
             <Text style={s.rateLabel}>Hourly Rate</Text>
-            <TouchableOpacity 
-              style={[s.rateInputContainer, isEditing && s.rateInputFocused]} 
+            <TouchableOpacity
+              style={[s.rateInputContainer, isEditing && s.rateInputFocused]}
               onPress={() => focusRateInput(uid)}
               activeOpacity={0.7}
             >
               <Text style={s.currencySymbol}>$</Text>
               <TextInput
-                ref={ref => rateInputRefs.current[uid] = ref}
+                ref={(ref) => (rateInputRefs.current[uid] = ref)}
                 style={s.rateInput}
                 value={roleMap[uid + "_rate"] || ""}
                 onChangeText={(t) => handleRateChange(uid, t)}
@@ -217,9 +219,9 @@ export default function ManageEmployees({ business }) {
               />
             </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity 
-            style={s.removeBtn} 
+
+          <TouchableOpacity
+            style={s.removeBtn}
             onPress={() => removeEmployee(uid)}
           >
             <Ionicons name="trash-outline" size={16} color="#888" />
@@ -233,7 +235,9 @@ export default function ManageEmployees({ business }) {
   /* Selected employee chip */
   const EmployeeChip = ({ item, onRemove }) => (
     <View style={s.chip}>
-      <Text style={s.chipText} numberOfLines={1}>{item.label}</Text>
+      <Text style={s.chipText} numberOfLines={1}>
+        {item.label}
+      </Text>
       <TouchableOpacity onPress={onRemove} style={s.chipRemove}>
         <Ionicons name="close" size={16} color="#888" />
       </TouchableOpacity>
@@ -247,33 +251,38 @@ export default function ManageEmployees({ business }) {
 
       <View style={s.addSection}>
         <Text style={s.sectionLabel}>Add New Employees</Text>
-        
+
         {/* Selected employees chips */}
         {selectedEmployees.length > 0 && (
-          <ScrollView 
-            horizontal={true} 
+          <ScrollView
+            horizontal={true}
             style={s.chipsScrollView}
             contentContainerStyle={s.chipsContainer}
             showsHorizontalScrollIndicator={false}
           >
-            {selectedEmployeeItems.map(item => (
-              <EmployeeChip 
-                key={item.value} 
-                item={item} 
-                onRemove={() => setSelectedEmployees(prev => 
-                  prev.filter(uid => uid !== item.value)
-                )}
+            {selectedEmployeeItems.map((item) => (
+              <EmployeeChip
+                key={item.value}
+                item={item}
+                onRemove={() =>
+                  setSelectedEmployees((prev) =>
+                    prev.filter((uid) => uid !== item.value)
+                  )
+                }
               />
             ))}
           </ScrollView>
         )}
-        
+
         {/* Dropdown for selecting employees */}
         <DropDownPicker
+          listMode="SCROLLVIEW"
           open={open}
           multiple={true}
           value={selectedEmployees}
-          items={userOptions.filter(u => !(business.employees || []).includes(u.value))}
+          items={userOptions.filter(
+            (u) => !(business.employees || []).includes(u.value)
+          )}
           setOpen={setOpen}
           setValue={setSelectedEmployees}
           setItems={setUserOptions}
@@ -287,7 +296,7 @@ export default function ManageEmployees({ business }) {
           selectedItemLabelStyle={s.dropdownSelectedItem}
           mode="BADGE"
           badgeColors={["#f0f0f0"]}
-          badgeTextStyle={{color: "#333"}}
+          badgeTextStyle={{ color: "#333" }}
           searchable={true}
           searchPlaceholder="Search users..."
         />
@@ -295,7 +304,10 @@ export default function ManageEmployees({ business }) {
         {/* Add button */}
         <TouchableOpacity
           disabled={!selectedEmployees.length || working}
-          style={[s.addBtn, (!selectedEmployees.length || working) && s.disabledBtn]}
+          style={[
+            s.addBtn,
+            (!selectedEmployees.length || working) && s.disabledBtn,
+          ]}
           onPress={addSelectedEmployees}
         >
           {working ? (
@@ -304,7 +316,11 @@ export default function ManageEmployees({ business }) {
             <>
               <Ionicons name="add" size={18} color="#fff" />
               <Text style={s.addTxt}>
-                Add {selectedEmployees.length > 0 ? `${selectedEmployees.length} ` : ''}Employee{selectedEmployees.length !== 1 ? 's' : ''}
+                Add{" "}
+                {selectedEmployees.length > 0
+                  ? `${selectedEmployees.length} `
+                  : ""}
+                Employee{selectedEmployees.length !== 1 ? "s" : ""}
               </Text>
             </>
           )}
@@ -314,18 +330,14 @@ export default function ManageEmployees({ business }) {
       {/* Current employees section */}
       <View style={s.currentSection}>
         <Text style={s.sectionLabel}>Current Team Members</Text>
-        <FlatList
-          data={current}
-          keyExtractor={(i) => i.value}
-          renderItem={EmployeeCard}
-          ListEmptyComponent={
-            <View style={s.emptyState}>
-              <Ionicons name="people" size={32} color="#ddd" />
-              <Text style={s.emptyText}>No employees added yet</Text>
-            </View>
-          }
-          contentContainerStyle={s.listContent}
-        />
+        {current.length === 0 ? (
+          <View style={s.emptyState}>
+            <Ionicons name="people" size={32} color="#ddd" />
+            <Text style={s.emptyText}>No employees added yet</Text>
+          </View>
+        ) : (
+          current.map((item) => <EmployeeCard key={item.value} item={item} />)
+        )}
       </View>
     </View>
   );
@@ -349,7 +361,7 @@ const s = StyleSheet.create({
     color: "#333",
     marginBottom: 16,
   },
-  
+
   // Add section
   addSection: {
     marginBottom: 32,
@@ -360,13 +372,13 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   chipsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingRight: 20,
   },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -374,7 +386,7 @@ const s = StyleSheet.create({
   },
   chipText: {
     fontSize: 14,
-    color: '#333',
+    color: "#333",
     maxWidth: 120,
   },
   chipRemove: {
@@ -419,17 +431,17 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
   },
-  addTxt: { 
-    color: "#fff", 
-    fontWeight: "500", 
+  addTxt: {
+    color: "#fff",
+    fontWeight: "500",
     fontSize: 15,
     marginLeft: 8,
   },
-  disabledBtn: { 
+  disabledBtn: {
     opacity: 0.5,
     backgroundColor: "#ccc",
   },
-  
+
   // Current employees section
   currentSection: {
     flex: 1,
@@ -437,7 +449,7 @@ const s = StyleSheet.create({
   listContent: {
     paddingBottom: 20,
   },
-  
+
   // Employee card styles
   card: {
     backgroundColor: "#fff",
@@ -480,13 +492,13 @@ const s = StyleSheet.create({
   staffBtn: {
     backgroundColor: "#999",
   },
-  roleBtnTxt: { 
-    color: "#fff", 
+  roleBtnTxt: {
+    color: "#fff",
     fontSize: 13,
     fontWeight: "500",
     marginRight: 4,
   },
-  
+
   cardBody: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -534,7 +546,7 @@ const s = StyleSheet.create({
     color: "#777",
     marginLeft: 4,
   },
-  
+
   // Empty state
   emptyState: {
     alignItems: "center",

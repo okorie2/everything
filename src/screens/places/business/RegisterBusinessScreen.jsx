@@ -314,7 +314,7 @@ const RegisterBusinessScreen = ({ navigation }) => {
             {isSubmitting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Ionicons
                   name="checkmark-circle-outline"
                   size={20}
@@ -322,7 +322,7 @@ const RegisterBusinessScreen = ({ navigation }) => {
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.buttonText}>Register Business</Text>
-              </>
+              </View>
             )}
           </TouchableOpacity>
         </ScrollView>

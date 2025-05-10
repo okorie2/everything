@@ -33,12 +33,7 @@ import AppointmentNavigator from "./src/navigations/AppointmentNavigator"; // ad
 import CalendarScreen from "./src/screens/calendar/CalendarScreen";
 import QueueDetailScreen from "./src/screens/hospital/QueueDetailScreen";
 import CityServicesScreen from "./src/screens/CityServicesScreen";
-
-const ChatScreen = () => (
-  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-    <Text style={{ fontSize: 20 }}>Chat Screen</Text>
-  </View>
-);
+import ChatRoomScreen from "./src/screens/ChatRoomScreen"; // adjust if needed
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -156,7 +151,7 @@ const BethelNavigator = () => {
       />
       <BethelTab.Screen
         name="ChatTab"
-        component={ChatScreen}
+        component={ChatRoomScreen}
         options={{
           title: "Chat",
           tabBarIcon: ({ color }) => (

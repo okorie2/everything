@@ -2,18 +2,11 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   SafeAreaView,
-  TextInput,
   RefreshControl,
-  Image,
-  Dimensions,
   StatusBar,
-  ScrollView,
-  Pressable,
   Platform,
   Animated,
 } from "react-native";
@@ -128,10 +121,10 @@ const BusinessListScreen = ({ navigation, route }) => {
     checkAdminStatus();
   }, []);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = () => {
     setRefreshing(true);
     fetchBusinesses();
-  }, []);
+  };
 
   const handleSearch = (text) => {
     setSearch(text);
@@ -185,133 +178,6 @@ const BusinessListScreen = ({ navigation, route }) => {
     outputRange: [1, 0.9],
     extrapolate: "clamp",
   });
-
-  // const renderItem = ({ item, index }) => {
-  //   // Animation for staggered appearance
-  //   const translateY = new Animated.Value(50);
-  //   const opacity = new Animated.Value(0);
-
-  //   Animated.parallel([
-  //     Animated.timing(translateY, {
-  //       toValue: 0,
-  //       duration: 300,
-  //       delay: index * 50,
-  //       useNativeDriver: true,
-  //     }),
-  //     Animated.timing(opacity, {
-  //       toValue: 1,
-  //       duration: 300,
-  //       delay: index * 50,
-  //       useNativeDriver: true,
-  //     }),
-  //   ]).start();
-
-  //   const categoryColor = getCategoryColor(item.category);
-  //   const categoryIcon = getCategoryIcon(item.category);
-
-  //   return (
-  //     <Animated.View
-  //       style={{
-  //         opacity,
-  //         transform: [{ translateY }],
-  //       }}
-  //     >
-  //       <TouchableOpacity
-  //         style={styles.card}
-  //         onPress={() =>
-  //           navigation.navigate("BusinessDetail", { business: item })
-  //         }
-  //         activeOpacity={0.7}
-  //       >
-  //         <View style={styles.cardHeader}>
-  //           <View
-  //             style={[styles.businessIcon, { backgroundColor: categoryColor }]}
-  //           >
-  //             <Ionicons name={categoryIcon} size={22} color={COLORS.primary} />
-  //           </View>
-  //           <View style={styles.businessInfo}>
-  //             <Text style={styles.name} numberOfLines={1}>
-  //               {item.name}
-  //             </Text>
-  //             <View style={styles.categoryContainer}>
-  //               <Text
-  //                 style={[
-  //                   styles.category,
-  //                   { backgroundColor: `${categoryColor}50` },
-  //                 ]}
-  //               >
-  //                 {item.category}
-  //               </Text>
-  //               {item.rating && (
-  //                 <View style={styles.ratingContainer}>
-  //                   <Ionicons name="star" size={14} color="#FFB400" />
-  //                   <Text style={styles.ratingText}>
-  //                     {item.rating.toFixed(1)}
-  //                   </Text>
-  //                 </View>
-  //               )}
-  //             </View>
-  //           </View>
-  //           <View style={styles.chevronContainer}>
-  //             <Ionicons
-  //               name="chevron-forward"
-  //               size={22}
-  //               color={COLORS.primary}
-  //             />
-  //           </View>
-  //         </View>
-
-  //         <View style={styles.cardBody}>
-  //           <View style={styles.infoRow}>
-  //             <Ionicons
-  //               name="location-outline"
-  //               size={16}
-  //               color={COLORS.textLight}
-  //               style={styles.infoIcon}
-  //             />
-  //             <Text style={styles.address} numberOfLines={1}>
-  //               {item.address || "No address provided"}
-  //             </Text>
-  //           </View>
-
-  //           {item.contact_info && item.contact_info.phone && (
-  //             <View style={styles.infoRow}>
-  //               <Ionicons
-  //                 name="call-outline"
-  //                 size={16}
-  //                 color={COLORS.textLight}
-  //                 style={styles.infoIcon}
-  //               />
-  //               <Text style={styles.contactInfo}>
-  //                 {item.contact_info.phone}
-  //               </Text>
-  //             </View>
-  //           )}
-  //         </View>
-
-  //         <View style={styles.cardFooter}>
-  //           <TouchableOpacity
-  //             style={styles.contactButton}
-  //             onPress={() =>
-  //               navigation.navigate("BusinessDetail", {
-  //                 business: item,
-  //                 initialTab: "contact",
-  //               })
-  //             }
-  //           >
-  //             <Ionicons
-  //               name="call-outline"
-  //               size={16}
-  //               color="#fff"
-  //               style={styles.contactIcon}
-  //             />
-  //             <Text style={styles.contactButtonText}>Contact</Text>
-  //           </TouchableOpacity>
-  //         </View>
-  //       </TouchableOpacity>
-  //     </Animated.View>
-  //   );
-  // };
 
   const ListEmptyComponent = () => (
     <View style={styles.emptyContainer}>
@@ -432,6 +298,7 @@ const BusinessListScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       )}
+      <View style={{ height: 80 }} />
 
       <BusinessCategoryFilter
         COLORS={COLORS}

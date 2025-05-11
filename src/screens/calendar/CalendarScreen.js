@@ -15,6 +15,7 @@ import { Calendar } from "react-native-big-calendar";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
 import { HOSPITAL_ID } from "../../constants/hospital";
+import { useCalendarData } from "../../hooks/useCalendarData";
 
 // Date formatting utility
 const formatDate = (date) => {
@@ -31,132 +32,15 @@ const formatTime = (date) =>
   });
 
 export default function CalendarScreen({ navigation }) {
-  const [events, setEvents] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const uid = auth.currentUser.uid;
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState("month"); // 'day', 'week', 'month'
 
-  const uid = auth.currentUser.uid;
-
-  // Memoize the start of today to avoid re-creating
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
-  // Main data-loading routine
-
-  const loadData = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const allEvents = [];
-
-      // 1. Fetch businesses owned by this user (if any)
-      const myBusinessesSnap = await getDocs(
-        query(collection(db, "businesses"), where("owner_id", "==", uid))
-      );
-      const businessIds = myBusinessesSnap.docs.map((doc) => doc.id);
-
-      const endDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-      // 2. For each business, get clinic slots
-      for (const bizId of businessIds) {
-        const clinicSnap = await getDocs(
-          collection(db, "businesses", bizId, "clinics")
-        );
-        const clinicNames = {};
-        const clinicIds = clinicSnap.docs.map((d) => {
-          clinicNames[d.id] = d.data().title ?? d.id;
-          return d.id;
-        });
-
-        for (const clinicId of clinicIds) {
-          const slotsRef = collection(
-            db,
-            "businesses",
-            bizId,
-            "clinics",
-            clinicId,
-            "slots"
-          );
-          const q = query(
-            slotsRef,
-            where("start", ">=", today),
-            where("start", "<", endDate)
-          );
-          const snap = await getDocs(q);
-
-          snap.docs.forEach((docSnap) => {
-            const s = docSnap.data();
-            const status = s.status ?? "open";
-            const isDoc = s.clinician_id === uid;
-            const isPat = (s.booked ?? []).includes(uid);
-
-            if (!isDoc && !isPat) return;
-
-            allEvents.push({
-              id: `slot-${docSnap.id}`,
-              title: isDoc
-                ? isPat
-                  ? "My own appointment"
-                  : `Patient slot (${status === "booked" ? "Booked" : "Open"})`
-                : "My appointment",
-              start: s.start.toDate(),
-              end: s.end.toDate(),
-              color: isDoc
-                ? status === "booked"
-                  ? "#2563EB"
-                  : "#93C5FD"
-                : "#16A34A",
-              slotPath: docSnap.ref.path,
-              clinicName: clinicNames[clinicId],
-              status,
-              patientCount: (s.booked ?? []).length,
-              clinicianId: s.clinician_id,
-              type: "slot",
-            });
-          });
-        }
-      }
-
-      // 3. Add custom appointments (visitor → owner bookings)
-      const appointmentsSnap = await getDocs(
-        query(collection(db, "appointments"), where("start", ">=", today))
-      );
-
-      appointmentsSnap.forEach((docSnap) => {
-        const a = docSnap.data();
-        const isInvolved = a.userId === uid || a.clinicianId === uid;
-        if (!isInvolved) return;
-
-        allEvents.push({
-          id: `appt-${docSnap.id}`,
-          title: a.userId === uid ? "My Appointment" : "Client Appointment",
-          start: a.start.toDate(),
-          end: a.end.toDate(),
-          color: a.userId === uid ? "#16A34A" : "#2563EB",
-          clinicianId: a.clinicianId,
-          userId: a.userId,
-          docPath: docSnap.ref.path,
-          type: "appointment",
-        });
-      });
-
-      setEvents(allEvents);
-    } catch (err) {
-      console.error("Calendar load failed:", err);
-      setError("Unable to load calendar");
-      setEvents([]);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const { events, isLoading, error, loadData, refresh } = useCalendarData(
+    db,
+    uid
+  );
 
   // On mount
   useEffect(() => {
@@ -186,102 +70,80 @@ export default function CalendarScreen({ navigation }) {
   };
   const goToToday = () => setSelectedDate(new Date());
 
-  // Event press
-  // ...existing code...
-
-  // const handleEventPress = (event) => {
-  //   // Get current date and event date with time set to midnight for proper comparison
-  //   const today = new Date();
-  //   today.setHours(0, 0, 0, 0);
-
-  //   const eventDate = new Date(event.start);
-  //   eventDate.setHours(0, 0, 0, 0);
-
-  //   // Compare dates using getTime() for accurate comparison
-  //   const isToday = eventDate.getTime() === today.getTime();
-
-  //   if (event.clinicianId === uid) {
-  //     Alert.alert(
-  //       event.status === "booked" ? "Booked Appointment" : "Open Slot",
-  //       `Clinic: ${event.clinicName}\nTime: ${formatTime(
-  //         event.start
-  //       )} – ${formatTime(event.end)}\nPatients: ${event.patientCount}`,
-  //       [
-  //         { text: "Cancel", style: "cancel" },
-  //         ...(isToday
-  //           ? [
-  //               {
-  //                 text: "View Details",
-  //                 onPress: () =>
-  //                   navigation.navigate("QueueDetail", {
-  //                     slotPath: event.slotPath,
-  //                   }),
-  //               },
-  //             ]
-  //           : []),
-  //       ]
-  //     );
-  //   } else {
-  //     Alert.alert(
-  //       "My Appointment",
-  //       `Clinic: ${event.clinicName}\nTime: ${formatTime(
-  //         event.start
-  //       )} – ${formatTime(event.end)}`,
-  //       [{ text: "Close", style: "cancel" }]
-  //     );
-  //   }
-  // };
-
   const handleEventPress = (event) => {
     const isOwner = event.clinicianId === uid;
 
+    // Format date function
+    const formatDate = (date) => {
+      return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    };
+
     if (event.type === "appointment") {
-      Alert.alert(
-        isOwner ? "Client Appointment" : "My Appointment",
+      // Determine what to display as the reason/description
+      const reasonText =
+        event.reason ||
+        event.description ||
+        event.fullData?.reason ||
+        event.fullData?.description ||
+        "No details provided";
+
+      // Build a more informative message
+      const message = [
+        `Date: ${formatDate(event.start)}`,
         `Time: ${formatTime(event.start)} – ${formatTime(event.end)}`,
-        [
-          { text: "Close", style: "cancel" },
-          ...(isOwner
-            ? [
-                {
-                  text: "Cancel Appointment",
-                  style: "destructive",
-                  onPress: async () => {
-                    try {
-                      await deleteDoc(doc(db, event.docPath));
-                      Alert.alert(
-                        "Cancelled",
-                        "Appointment has been cancelled."
-                      );
-                      loadData();
-                    } catch (e) {
-                      Alert.alert("Error", "Failed to cancel appointment.");
-                    }
-                  },
+        `Reason: ${reasonText}`,
+        ...(event.clinicName && event.clinicName !== "Unknown Clinic"
+          ? [`Clinic: ${event.clinicName}`]
+          : []),
+        ...(isOwner && event.patientName
+          ? [`Patient: ${event.patientName}`]
+          : []),
+        ...(!isOwner && event.clinicianName
+          ? [`Clinician: ${event.clinicianName}`]
+          : []),
+        ...(event.notes ? [`Notes: ${event.notes}`] : []),
+      ].join("\n");
+
+      Alert.alert(isOwner ? "Client Appointment" : "My Appointment", message, [
+        { text: "Close", style: "cancel" },
+        ...(isOwner
+          ? [
+              {
+                text: "Cancel Appointment",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await deleteDoc(doc(db, event.docPath));
+                    Alert.alert("Cancelled", "Appointment has been cancelled.");
+                    loadData();
+                  } catch (e) {
+                    Alert.alert("Error", "Failed to cancel appointment.");
+                  }
                 },
-              ]
-            : []),
-        ]
-      );
+              },
+            ]
+          : []),
+      ]);
     } else {
-      // existing slot event logic
+      // For non-appointment events (slots)
       Alert.alert(
         isOwner ? "Clinic Slot" : "My Slot",
-        `Time: ${formatTime(event.start)} – ${formatTime(event.end)}\nClinic: ${
-          event.clinicName
-        }`,
+        `Date: ${formatDate(event.start)}\nTime: ${formatTime(
+          event.start
+        )} – ${formatTime(event.end)}\nClinic: ${event.clinicName}`,
         [{ text: "Close", style: "cancel" }]
       );
     }
   };
-
-  // ...existing code...
-
-  // Custom cell
   const renderEventCell = (evt) => (
     <TouchableOpacity
       style={[styles.eventCell, { backgroundColor: evt.color }]}
-      onPress={() => handleEventPress(evt)} // Trigger event press when clicked
+      onPress={() => handleEventPress(evt)}
     >
       <Text style={styles.eventTitle} numberOfLines={1}>
         {evt.title}

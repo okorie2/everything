@@ -57,20 +57,16 @@ export const BusinessCategoryFilter = ({
 
 const styles = StyleSheet.create({
   filterContainer: {
-    paddingTop: 8, // Reduced padding top from 12 to 8
+    paddingTop: 8,
     paddingBottom: 4,
     paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF", // Using explicit color instead of COLORS.background
+    // backgroundColor: "#FFFFFF",
     zIndex: 1,
-    // Add a shadow to visually separate from the header
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.03,
+    // shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    marginTop: -12, // Create an overlap with the header
   },
   filterScroll: {
     paddingBottom: 12,

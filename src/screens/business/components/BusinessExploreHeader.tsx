@@ -19,7 +19,7 @@ const BusinessExplorerHeader = ({
   filterData,
   activeFilter,
   headerHeight,
-  headerOpacity,
+  searchOpacity,
   handleGoBack,
   handleSearch,
   COLORS,
@@ -30,7 +30,6 @@ const BusinessExplorerHeader = ({
         styles.header,
         {
           height: headerHeight,
-          opacity: headerOpacity,
         },
       ]}
     >
@@ -40,7 +39,7 @@ const BusinessExplorerHeader = ({
         end={{ x: 1, y: 0.8 }}
         style={styles.gradientHeader}
       >
-        {/* Header Top Section */}
+        {/* Header Top Section - Always visible */}
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
             <Pressable
@@ -68,8 +67,10 @@ const BusinessExplorerHeader = ({
           </Pressable>
         </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
+        {/* Search Bar - Collapses during scroll */}
+        <Animated.View
+          style={[styles.searchContainer, { opacity: searchOpacity }]}
+        >
           <View style={styles.searchWrapper}>
             <Ionicons
               name="search-outline"
@@ -100,7 +101,7 @@ const BusinessExplorerHeader = ({
               </TouchableOpacity>
             )}
           </View>
-        </View>
+        </Animated.View>
       </LinearGradient>
     </Animated.View>
   );

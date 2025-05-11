@@ -17,6 +17,7 @@ import VisitorView from "./components/VisitorView";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase"; // Adjust the import path as needed
+
 // Define theme colors
 const COLORS = {
   primary: "#FF8008", // Orange - active primary
@@ -41,11 +42,8 @@ const BusinessDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     // Set up the header title
     navigation?.setOptions({
-      title: business?.name || "Business Details",
-      headerStyle: {
-        backgroundColor: COLORS.secondary,
-      },
-      headerTintColor: "#ffffff",
+      title: "",
+      headerShown: false,
     });
 
     const auth = getAuth();
@@ -77,11 +75,9 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         return;
       }
 
-      // console.log("Fetching admin status...");
       const snap = await getDoc(doc(db, "user", currentUser.uid));
       if (snap.exists()) {
         const admin = snap.data()?.isAdmin === true;
-        // console.log("Admin status:", admin);
         setIsAdmin(admin);
       } else {
         console.log("No user document found");
@@ -108,24 +104,15 @@ const BusinessDetailScreen = ({ route, navigation }) => {
     recordVisit();
   }, []);
 
-  const renderTabButton = (tabName, label, icon) => {
+  const renderTabButton = (tabName, label) => {
     const isActive = activeTab === tabName;
     return (
       <TouchableOpacity
-        style={[
-          styles.tabButton,
-          isActive && {
-            borderBottomColor: COLORS.primary,
-            borderBottomWidth: 3,
-          },
-        ]}
+        style={[styles.tabButton, isActive && styles.activeTabButton]}
         onPress={() => setActiveTab(tabName)}
       >
         <Text
-          style={[
-            styles.tabButtonText,
-            isActive && { color: COLORS.primary, fontWeight: "700" },
-          ]}
+          style={[styles.tabButtonText, isActive && styles.activeTabButtonText]}
         >
           {label}
         </Text>
@@ -133,25 +120,26 @@ const BusinessDetailScreen = ({ route, navigation }) => {
     );
   };
 
-  const renderRoleBadge = () => {
-    let badgeStyle = styles.visitorBadge;
-    let badgeText = "Visitor";
-
+  const getRoleBadgeStyle = () => {
     if (role === "owner") {
-      badgeStyle = styles.ownerBadge;
-      badgeText = "Owner";
+      return {
+        badgeStyle: styles.ownerBadge,
+        textStyle: styles.ownerBadgeText,
+        text: "Owner",
+      };
     } else if (role === "employee") {
-      badgeStyle = styles.employeeBadge;
-      badgeText = "Employee";
+      return {
+        badgeStyle: styles.employeeBadge,
+        textStyle: styles.employeeBadgeText,
+        text: "Employee",
+      };
+    } else {
+      return {
+        badgeStyle: styles.visitorBadge,
+        textStyle: styles.visitorBadgeText,
+        text: "Visitor",
+      };
     }
-
-    return (
-      <View style={styles.badgeContainer}>
-        <View style={badgeStyle}>
-          <Text style={styles.badgeText}>{badgeText}</Text>
-        </View>
-      </View>
-    );
   };
 
   if (loading) {
@@ -171,27 +159,29 @@ const BusinessDetailScreen = ({ route, navigation }) => {
     navigation.goBack();
   };
 
+  const { badgeStyle, textStyle, text } = getRoleBadgeStyle();
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
 
-      {/* Business Header */}
-      <View style={styles.businessHeader}>
-        <View style={styles.headerTopRow}>
-          <Pressable
-            style={styles.backButton}
-            onPress={handleGoBack}
-            android_ripple={{
-              color: "rgba(0,0,0,0.1)",
-              borderless: true,
-            }}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </Pressable>
-          <View style={styles.businessInfo}>
-            <Text style={styles.businessName}>{business.name}</Text>
+      {/* Integrated Header */}
+      <View style={styles.header}>
+        <Pressable
+          style={styles.backButton}
+          onPress={handleGoBack}
+          android_ripple={{ color: "rgba(0,0,0,0.1)", borderless: true }}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </Pressable>
+
+        <View style={styles.businessInfo}>
+          <Text style={styles.businessName}>{business.name}</Text>
+          <View style={styles.businessMeta}>
             <Text style={styles.businessCategory}>{business.category}</Text>
-            {renderRoleBadge()}
+            <View style={badgeStyle}>
+              <Text style={textStyle}>{text}</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -202,10 +192,10 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         {role === "owner" && renderTabButton("manage", "Manage")}
         {(role === "owner" || role === "employee") &&
           renderTabButton("analytics", "Analytics")}
-        {/* {renderTabButton("info", "Information")} */}
         {role === "owner" && renderTabButton("payroll", "Payroll")}
       </View>
 
+      {/* Admin Approval Button */}
       {isAdmin && business.status === "pending_approval" && (
         <TouchableOpacity
           onPress={async () => {
@@ -218,28 +208,19 @@ const BusinessDetailScreen = ({ route, navigation }) => {
                 "Business Approved",
                 "The business has been approved."
               );
-              navigation.goBack(); // Or refresh if needed
+              navigation.goBack();
             } catch (err) {
               console.error("Approval error:", err);
               Alert.alert("Error", "Failed to approve business.");
             }
           }}
-          style={{
-            backgroundColor: COLORS.success,
-            marginHorizontal: 20,
-            paddingVertical: 12,
-            borderRadius: 10,
-            marginVertical: 10,
-            alignItems: "center",
-          }}
+          style={styles.approveButton}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>
-            Approve Business
-          </Text>
+          <Text style={styles.approveButtonText}>Approve Business</Text>
         </TouchableOpacity>
       )}
 
-      {/* Content Area - No ScrollView wrapper to avoid nesting issues */}
+      {/* Content Area */}
       <View style={styles.contentContainer}>
         {role === "owner" && (
           <OwnerDashboard business={business} activeTab={activeTab} />
@@ -280,135 +261,132 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     fontSize: 16,
   },
-  businessHeader: {
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 22,
-    paddingTop: 28,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  headerTopRow: {
+  header: {
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   backButton: {
-    height: 40,
-    width: 40,
-    borderRadius: 20,
-    backgroundColor: "#ffffff",
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 18,
-    marginTop: 2,
-    borderWidth: 1,
-    borderColor: "#eeeeee",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+    marginRight: 16,
   },
   backButtonText: {
-    color: "#444444",
-    fontSize: 22,
+    color: "#ffffff",
+    fontSize: 20,
     fontWeight: "300",
   },
   businessInfo: {
-    flexDirection: "column",
     flex: 1,
   },
   businessName: {
-    color: "#222222",
-    fontSize: 24,
+    color: "#ffffff",
+    fontSize: 22,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 6,
     letterSpacing: -0.5,
   },
+  businessMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   businessCategory: {
-    color: "#888888",
-    fontSize: 15,
-    marginBottom: 10,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
     textTransform: "uppercase",
     letterSpacing: 0.2,
     fontWeight: "500",
-  },
-  roleBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: "rgba(255, 128, 8, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 128, 8, 0.15)",
-    shadowColor: "rgba(255, 128, 8, 0.2)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  roleBadgeText: {
-    color: "#FF8008",
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-  },
-  badgeContainer: {
-    flexDirection: "row",
-    marginTop: 6,
+    marginRight: 12,
   },
   ownerBadge: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
   employeeBadge: {
     backgroundColor: "#4caf50",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
   visitorBadge: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  badgeText: {
+  ownerBadgeText: {
     color: "#ffffff",
     fontWeight: "600",
-    fontSize: 12,
+    fontSize: 11,
+  },
+  employeeBadgeText: {
+    color: "#ffffff",
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  visitorBadgeText: {
+    color: "#ffffff",
+    fontWeight: "600",
+    fontSize: 11,
   },
   tabContainer: {
     flexDirection: "row",
     backgroundColor: COLORS.card,
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 10,
+    paddingHorizontal: 5,
+    elevation: 3,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+  },
+  activeTabButton: {
+    backgroundColor: "transparent",
   },
   tabButtonText: {
     fontSize: 14,
     color: COLORS.textLight,
     fontWeight: "500",
+  },
+  activeTabButtonText: {
+    color: COLORS.primary,
+    fontWeight: "700",
+    position: "relative",
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
+    paddingBottom: 2,
+  },
+  approveButton: {
+    backgroundColor: COLORS.success,
+    marginHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginVertical: 16,
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  approveButtonText: {
+    color: "#fff",
+    fontWeight: "700",
   },
   contentContainer: {
     flex: 1,

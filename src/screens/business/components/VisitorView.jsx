@@ -6,32 +6,117 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { db, auth } from "../../../../backend/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 
+// Define theme colors to match BusinessDetailScreen
+const COLORS = {
+  primary: "#FF8008", // Orange - active primary
+  secondary: "#1a2a6c", // Deep blue
+  background: "#f8f9fa",
+  card: "#ffffff",
+  text: "#333333",
+  textLight: "#767676",
+  border: "#e0e0e0",
+};
+
 const VisitorView = ({ business }) => {
   const [date, setDate] = useState(new Date());
   const [mode, setMode] = useState("date");
-  const [showPicker, setShowPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [datePickerPosition, setDatePickerPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [timePickerPosition, setTimePickerPosition] = useState({
+    top: 0,
+    left: 0,
+  });
 
-  const showDatePicker = () => {
-    setMode("date");
-    setShowPicker(true);
+  // Format the date and time for display
+  const formatDate = (date) => {
+    return date.toLocaleDateString([], {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
-  const showTimePicker = () => {
-    setMode("time");
-    setShowPicker(true);
+  const formatTime = (date) => {
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  const handleChange = (event, selectedDate) => {
-    if (Platform.OS === "android") {
-      setShowPicker(false);
+  const handleOpenDatePicker = (event) => {
+    // On iOS, we use the native picker modal behavior
+    if (Platform.OS === "ios") {
+      setMode("date");
+      setShowDatePicker(true);
+      return;
     }
+
+    // On Android, we'll try to position the picker near the button
+    // Store measurements for modal positioning
+    if (event && event.nativeEvent) {
+      const { pageY } = event.nativeEvent;
+      setDatePickerPosition({
+        top: pageY + 5, // Position just below the button
+        left: 16, // Align with container padding
+      });
+    }
+
+    setMode("date");
+    setShowDatePicker(true);
+  };
+
+  const handleOpenTimePicker = (event) => {
+    // On iOS, we use the native picker modal behavior
+    if (Platform.OS === "ios") {
+      setMode("time");
+      setShowTimePicker(true);
+      return;
+    }
+
+    // On Android, we'll try to position the picker near the button
+    if (event && event.nativeEvent) {
+      const { pageY } = event.nativeEvent;
+      setTimePickerPosition({
+        top: pageY + 5, // Position just below the button
+        left: 16, // Align with container padding
+      });
+    }
+
+    setMode("time");
+    setShowTimePicker(true);
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+
     if (selectedDate) {
-      setDate(selectedDate);
+      // Keep the time part from the current date
+      const newDate = new Date(selectedDate);
+      newDate.setHours(date.getHours(), date.getMinutes());
+      setDate(newDate);
+    }
+  };
+
+  const handleTimeChange = (event, selectedTime) => {
+    setShowTimePicker(false);
+
+    if (selectedTime) {
+      // Keep the date part from the current date
+      const newDate = new Date(date);
+      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+      setDate(newDate);
     }
   };
 
@@ -63,37 +148,180 @@ const VisitorView = ({ business }) => {
     }
   };
 
+  // Custom picker container for Android to provide better positioning
+  const renderAndroidDatePicker = () => {
+    if (!showDatePicker) return null;
+
+    return (
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={showDatePicker}
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    top: datePickerPosition.top,
+                    left: datePickerPosition.left,
+                  },
+                ]}
+              >
+                <View style={styles.pickerHeader}>
+                  <Text style={styles.pickerTitle}>Select Date</Text>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <Text style={styles.pickerCloseButton}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  testID="datePicker"
+                  value={date}
+                  mode="date"
+                  is24Hour={false}
+                  display="calendar"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                  style={styles.picker}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
+  const renderAndroidTimePicker = () => {
+    if (!showTimePicker) return null;
+
+    return (
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={showTimePicker}
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowTimePicker(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    top: timePickerPosition.top,
+                    left: timePickerPosition.left,
+                  },
+                ]}
+              >
+                <View style={styles.pickerHeader}>
+                  <Text style={styles.pickerTitle}>Select Time</Text>
+                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                    <Text style={styles.pickerCloseButton}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  testID="timePicker"
+                  value={date}
+                  mode="time"
+                  is24Hour={false}
+                  display="clock"
+                  onChange={handleTimeChange}
+                  style={styles.picker}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
+  // iOS picker - uses native behavior
+  const renderIOSPicker = () => {
+    if (Platform.OS !== "ios") return null;
+
+    if (showDatePicker) {
+      return (
+        <DateTimePicker
+          testID="dateTimePicker"
+          value={date}
+          mode="date"
+          display="spinner"
+          onChange={handleDateChange}
+          minimumDate={new Date()}
+        />
+      );
+    }
+
+    if (showTimePicker) {
+      return (
+        <DateTimePicker
+          testID="dateTimePicker"
+          value={date}
+          mode="time"
+          display="spinner"
+          onChange={handleTimeChange}
+        />
+      );
+    }
+
+    return null;
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.name}>{business.name}</Text>
-      <Text style={styles.category}>{business.category}</Text>
+      <View style={styles.card}>
+        <Text style={styles.name}>{business.name}</Text>
+        <Text style={styles.category}>{business.category}</Text>
 
-      <TouchableOpacity style={styles.button} onPress={showDatePicker}>
-        <Text style={styles.buttonText}>Select Date</Text>
-      </TouchableOpacity>
+        <View style={styles.divider} />
 
-      <TouchableOpacity style={styles.button} onPress={showTimePicker}>
-        <Text style={styles.buttonText}>Select Time</Text>
-      </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Schedule an Appointment</Text>
 
-      <Text style={styles.selectedDate}>
-        {date.toLocaleDateString()} {date.toLocaleTimeString()}
-      </Text>
+        <View style={styles.dateTimeContainer}>
+          <View style={styles.dateContainer}>
+            <Text style={styles.labelText}>Date</Text>
+            <TouchableOpacity
+              style={styles.selector}
+              onPress={handleOpenDatePicker}
+            >
+              <Text style={styles.valueText}>{formatDate(date)}</Text>
+              <Text style={styles.iconText}>📅</Text>
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity
-        style={styles.bookButton}
-        onPress={handleBookAppointment}
-      >
-        <Text style={styles.bookButtonText}>Book Appointment</Text>
-      </TouchableOpacity>
+          <View style={styles.timeContainer}>
+            <Text style={styles.labelText}>Time</Text>
+            <TouchableOpacity
+              style={styles.selector}
+              onPress={handleOpenTimePicker}
+            >
+              <Text style={styles.valueText}>{formatTime(date)}</Text>
+              <Text style={styles.iconText}>⏰</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-      {showPicker && (
-        <DateTimePicker
-          value={date}
-          mode={mode}
-          display="default"
-          onChange={handleChange}
-        />
+        <TouchableOpacity
+          style={styles.bookButton}
+          onPress={handleBookAppointment}
+        >
+          <Text style={styles.bookButtonText}>Book Appointment</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Render the appropriate picker for the platform */}
+      {Platform.OS === "android" ? (
+        <>
+          {renderAndroidDatePicker()}
+          {renderAndroidTimePicker()}
+        </>
+      ) : (
+        renderIOSPicker()
       )}
     </View>
   );
@@ -104,47 +332,124 @@ export default VisitorView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: "#fff",
+    padding: 16,
+    backgroundColor: COLORS.background,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   name: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
-    color: "#1a2a6c",
+    color: COLORS.secondary,
     marginBottom: 8,
   },
   category: {
     fontSize: 16,
-    color: "#888",
-    marginBottom: 20,
+    color: COLORS.textLight,
+    marginBottom: 12,
   },
-  button: {
-    backgroundColor: "#eee",
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 10,
-    alignItems: "center",
-  },
-  buttonText: {
-    fontWeight: "600",
-    color: "#333",
-  },
-  selectedDate: {
-    fontSize: 16,
-    textAlign: "center",
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
     marginVertical: 16,
-    color: "#444",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  dateTimeContainer: {
+    marginBottom: 24,
+  },
+  dateContainer: {
+    marginBottom: 16,
+  },
+  timeContainer: {
+    marginBottom: 8,
+  },
+  labelText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  selector: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  valueText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  iconText: {
+    fontSize: 16,
   },
   bookButton: {
-    backgroundColor: "#FF8008",
+    backgroundColor: COLORS.primary,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 20,
   },
   bookButtonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 16,
+  },
+  // Custom picker modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickerContainer: {
+    position: "absolute",
+    width: "90%",
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingBottom: 8,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.secondary,
+  },
+  pickerCloseButton: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  picker: {
+    marginTop: 8,
   },
 });

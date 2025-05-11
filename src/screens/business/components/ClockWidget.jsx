@@ -10,7 +10,7 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db, auth } from "../../../../../backend/firebase"; // adjust the path if needed
+import { db, auth } from "../../../../backend/firebase"; // adjust the path if needed
 
 export default function ClockWidget({ bizId }) {
   const uid = auth.currentUser.uid;

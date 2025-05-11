@@ -25,7 +25,7 @@ import {
   limit,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "../../../../../backend/firebase"; // Adjust the import path as necessary
+import { db } from "../../../../backend/firebase"; // Adjust the import path as necessary
 import DropDownPicker from "react-native-dropdown-picker";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";

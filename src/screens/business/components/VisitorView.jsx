@@ -8,7 +8,7 @@ import {
   Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { db, auth } from "../../../../../backend/firebase";
+import { db, auth } from "../../../../backend/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 const VisitorView = ({ business }) => {

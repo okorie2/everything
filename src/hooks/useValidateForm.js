@@ -45,13 +45,13 @@ export const useValidateForm = (formDetails, setErrors) => {
       }
   
       // Validate phone number
-      const phoneRegex = /^\d{10}$/;
+      const phoneRegex = /^\d{11}$/;
       if (
         'phoneNumber' in formDetails &&
         (!formDetails.phoneNumber.trim() ||
           !phoneRegex.test(formDetails.phoneNumber.replace(/[^0-9]/g, '')))
       ) {
-        newErrors.phoneNumber = 'Valid 10-digit phone number is required';
+        newErrors.phoneNumber = 'Valid 11-digit phone number is required';
         isValid = false;
       }
   

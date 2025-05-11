@@ -24,7 +24,7 @@ import {
   orderBy,
   delay,
 } from "firebase/firestore";
-import { db } from "../../../../../backend/firebase";
+import { db } from "../../../../backend/firebase";
 import { MaterialIcons, Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import ClockWidget from "./ClockWidget"; // add at top
 import { getAuth } from "firebase/auth";
@@ -412,7 +412,7 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
   const EmptyListComponent = () => (
     <View style={styles.emptyContainer}>
       <Image
-        source={require("../../../../../assets/empty.gif")}
+        source={require("../../../../assets/empty.gif")}
         style={styles.emptyImage}
         resizeMode="contain"
       />

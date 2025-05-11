@@ -21,7 +21,7 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../../../../backend/firebase";
+import { db } from "../../../backend/firebase";
 import Toast from "react-native-root-toast";
 import { Ionicons } from "@expo/vector-icons"; // Make sure to install expo/vector-icons
 

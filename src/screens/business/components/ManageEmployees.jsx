@@ -22,7 +22,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import DropDownPicker from "react-native-dropdown-picker";
 import Toast from "react-native-root-toast";
-import { db } from "../../../../../backend/firebase"; // adjust if needed
+import { db } from "../../../../backend/firebase"; // adjust if needed
 
 export default function ManageEmployees({ business }) {
   /* dropdown state */

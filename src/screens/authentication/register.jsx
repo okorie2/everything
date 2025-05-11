@@ -100,11 +100,11 @@ const RegistrationScreen = ({ navigation }) => {
         birth_date: formDetails.birthDate,
         relationship: formDetails.relationship,
       });
+      setLoading(false);
+      navigation.navigate("EmailVerification");
       await sendEmailVerification(userCredential.user);
       Alert.alert("Registration successful! Please verify your email.");
    
-      navigation.navigate("EmailVerification");
-      setLoading(false);
     } catch (error) {
       setLoading(false);
 

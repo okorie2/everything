@@ -167,7 +167,7 @@ const ProfileScreen = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.replace("Login");
+      // navigation.replace("Login");
     } catch (error) {
       console.error("Error signing out:", error);
       Alert.alert("Error", "Failed to sign out");

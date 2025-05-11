@@ -17,7 +17,7 @@ import {
 import Papa from "papaparse";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { db } from "../../../../../backend/firebase";
+import { db } from "../../../../backend/firebase";
 
 export default function PayrollTab({ business, payPeriod }) {
   /* rows = { uid, name, hours, rate } */

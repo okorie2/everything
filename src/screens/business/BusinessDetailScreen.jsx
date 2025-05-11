@@ -16,7 +16,7 @@ import EmployeeDashboard from "./components/EmployeeDashboard";
 import VisitorView from "./components/VisitorView";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db, auth } from "../../../../backend/firebase"; // Adjust the import path as needed
+import { db, auth } from "../../../backend/firebase"; // Adjust the import path as needed
 // Define theme colors
 const COLORS = {
   primary: "#FF8008", // Orange - active primary

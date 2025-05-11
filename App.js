@@ -1,11 +1,4 @@
 import React from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  ActivityIndicator,
-  SafeAreaView,
-} from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import CalculatorScreen from "./src/screens/calculatorScreen";
@@ -22,13 +15,11 @@ import NotesScreenContainer from "./src/screens/notesScreen";
 import RegistrationScreen from "./src/screens/authentication/register";
 import EmailVerificationScreen from "./src/screens/authentication/verifyEmail";
 import ForgotPasswordScreen from "./src/screens/authentication/forgotPasswordScreen";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./backend/firebase";
-import RegisterBusinessScreen from "./src/screens/places/business/RegisterBusinessScreen"; // adjust if needed
-import BusinessDetailScreen from "./src/screens/places/business/BusinessDetailScreen";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import BusinessListScreen from "./src/screens/places/BusinessListScreen"; // adjust if needed
-import { Platform, StatusBar } from "react-native";
+import { onAuthStateChanged, getAuth } from "firebase/auth";
+import RegisterBusinessScreen from "./src/screens/business/RegisterBusinessScreen"; // adjust if needed
+import BusinessDetailScreen from "./src/screens/business/BusinessDetailScreen";
+import BusinessListScreen from "./src/screens/business/BusinessListScreen"; // adjust if needed
+import { StatusBar } from "react-native";
 import AppointmentNavigator from "./src/navigations/AppointmentNavigator"; // adjust if needed
 import CalendarScreen from "./src/screens/calendar/CalendarScreen";
 import QueueDetailScreen from "./src/screens/hospital/QueueDetailScreen";
@@ -193,6 +184,7 @@ const AuthNavigator = () => {
 const AppNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+    
       <Stack.Screen name="Home" component={BethelNavigator} />
       <Stack.Screen name="Main" component={TabNavs} />
       <Stack.Screen
@@ -206,6 +198,7 @@ const AppNavigator = () => {
       <Stack.Screen name="QueueDetail" component={QueueDetailScreen} />
 
       <Stack.Screen name="CityServices" component={CityServicesScreen} />
+    
     </Stack.Navigator>
   );
 };
@@ -213,18 +206,25 @@ const AppNavigator = () => {
 // Root Navigator - checks auth status and routes accordingly
 const RootNavigator = () => {
   const [currentUser, setCurrentUser] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
   const isAuthenticated = !!currentUser;
+   const auth = getAuth();
+
   React.useEffect(() => {
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false);
+      if(user && user.emailVerified){
+        console.log(user, "user")
+        setCurrentUser(user);
+
+      }else{
+        setCurrentUser(null);
+        console.log("User is not authenticated or email not verified", user);
+      }
     });
 
     // Cleanup subscription
     return unsubscribe;
-  }, []);
+  }, [auth.currentUser]);
   return (
     <NavigationContainer>
       {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}

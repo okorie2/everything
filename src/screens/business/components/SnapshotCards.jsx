@@ -8,7 +8,7 @@ import {
   Timestamp,
   getDocs,
 } from "firebase/firestore";
-import { db } from "../../../../../backend/firebase";
+import { db } from "../../../../backend/firebase";
 
 const COLORS = {
   card: "#ffffff",

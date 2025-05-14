@@ -13,10 +13,8 @@ import {
 } from "react-native";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../backend/firebase";
-// Note: Icons would need to be imported from a React Native compatible library like react-native-vector-icons
-// For this example, we'll use placeholder comments for icons
 
-const HOSPITAL_ID = "bethel-hospital"; // the doc you seeded
+const HOSPITAL_ID = "bethel-hospital";
 
 export default function ClinicListScreen({ navigation }) {
   const [clinics, setClinics] = useState(null);
@@ -72,6 +70,8 @@ export default function ClinicListScreen({ navigation }) {
       filterClinics();
     }
   }, [searchQuery, clinics]);
+
+  console.log(filteredClinics, "filteredClinics");
 
   const renderHeader = () => (
     <View style={styles.header}>

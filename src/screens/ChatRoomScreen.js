@@ -11,13 +11,14 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Animated,
-  Image,
   StatusBar,
   Dimensions,
 } from "react-native";
 import {
   collection,
   addDoc,
+  doc,
+  getDoc,
   serverTimestamp,
   query,
   orderBy,
@@ -25,12 +26,9 @@ import {
   limit,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { db } from "../../backend/firebase"; // adjust path
+import { db } from "../../backend/firebase";
 import { format } from "date-fns";
-// For Expo projects:
-// import { Ionicons } from "@expo/vector-icons";
-// For non-Expo React Native projects:
-import Ionicons from "react-native-vector-icons/Ionicons"; // Make sure to install react-native-vector-icons
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const MessageItem = React.memo(({ item, currentUserId }) => {
   const isMe = item.senderId === currentUserId;
@@ -95,7 +93,7 @@ const ChatRoomScreen = () => {
   const inputRef = useRef(null);
   const auth = getAuth();
   const currentUser = auth.currentUser;
-  const screenWidth = Dimensions.get("window").width;
+  const userDocRef = doc(db, "user", currentUser.uid);
 
   useEffect(() => {
     const q = query(
@@ -131,10 +129,14 @@ const ChatRoomScreen = () => {
     setSending(true);
 
     try {
+      const userDoc = await getDoc(userDocRef);
+      const data = userDoc.data();
+      console.log("sending", data.first_name);
+
       await addDoc(collection(db, "global_chat_messages"), {
         text: trimmedInput,
         senderId: currentUser.uid,
-        senderName: currentUser.displayName || "Anonymous",
+        senderName: data.first_name + " " + data.last_name || "Anonymous",
         timestamp: serverTimestamp(),
       });
       setSending(false);
@@ -178,18 +180,6 @@ const ChatRoomScreen = () => {
     </View>
   );
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      {/* <TouchableOpacity style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#333" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Global Chat</Text>
-      <TouchableOpacity style={styles.headerButton}>
-        <Ionicons name="ellipsis-vertical" size={24} color="#333" />
-      </TouchableOpacity> */}
-    </View>
-  );
-
   const renderSeparator = () => <View style={styles.separator} />;
 
   return (
@@ -218,9 +208,6 @@ const ChatRoomScreen = () => {
         style={styles.keyboardAvoid}
       >
         <View style={styles.inputContainer}>
-          {/* <TouchableOpacity style={styles.attachButton}>
-            <Ionicons name="add-circle-outline" size={24} color="#777" />
-          </TouchableOpacity> */}
           <TextInput
             ref={inputRef}
             placeholder="Type a message"

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../backend/firebase";
@@ -24,24 +25,27 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db } from "../../backend/firebase";
+import { db, storage } from "../../backend/firebase"; // Import storage
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Import storage functions
+import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
 
 const ProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [userData, setUserData] = useState({
     firstName: "",
     lastName: "",
-    age: "",
     relationship: "",
     phone_number: "",
     address: "",
+    age: "",
     email: "",
+    profileImage: null,
   });
   const [jobs, setJobs] = useState([]);
-  const [appointments, setAppointments] = useState([]);
 
   const fetchUserData = async () => {
     try {
@@ -57,14 +61,15 @@ const ProfileScreen = ({ navigation }) => {
 
       if (userDoc.exists()) {
         const data = userDoc.data();
+
         setUserData({
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
-          age: data.age ? data.age.toString() : "",
+          firstName: data.first_name || "",
+          lastName: data.last_name || "",
           relationship: data.relationship || "",
           phone_number: data.phone_number ? data.phone_number.toString() : "",
           address: data.address || "",
-          email: currentUser.email || "",
+          email: data.email || "",
+          profileImage: data.profileImage || null,
         });
       } else {
         // Initialize with just email if no profile exists yet
@@ -85,26 +90,6 @@ const ProfileScreen = ({ navigation }) => {
         ...doc.data(),
       }));
       setJobs(jobsList);
-
-      // Fetch user's appointments
-      const appointmentsQuery = query(
-        collection(db, "appointments"),
-        where("userId", "==", currentUser.uid)
-      );
-      const appointmentsSnapshot = await getDocs(appointmentsQuery);
-      const appointmentsList = appointmentsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      // Sort appointments by date (upcoming first)
-      appointmentsList.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateA - dateB;
-      });
-
-      setAppointments(appointmentsList);
     } catch (error) {
       console.error("Error fetching user data:", error);
       Alert.alert("Error", "Failed to load profile data");
@@ -112,6 +97,7 @@ const ProfileScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchUserData();
   }, [navigation]);
@@ -123,6 +109,72 @@ const ProfileScreen = ({ navigation }) => {
     });
     return unsubscribe;
   }, [navigation]);
+
+  // Request permissions for image library
+  useEffect(() => {
+    (async () => {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Sorry, we need camera roll permissions to upload images."
+        );
+      }
+    })();
+  }, []);
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        uploadImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image");
+    }
+  };
+
+  const uploadImage = async (uri) => {
+    try {
+      setUploading(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert("Error", "User not authenticated");
+        return;
+      }
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `user_profile_images/${currentUser.uid}`);
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+      // Update user's profile in Firestore
+      const userDocRef = doc(db, "user", currentUser.uid);
+      await updateDoc(userDocRef, {
+        profileImage: downloadURL,
+      });
+
+      // Update local state
+      setUserData((prev) => ({
+        ...prev,
+        profileImage: downloadURL,
+      }));
+
+      Alert.alert("Success", "Profile picture updated");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      Alert.alert("Error", error.message || "Failed to upload image");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     try {
@@ -151,7 +203,7 @@ const ProfileScreen = ({ navigation }) => {
       };
 
       // Update user document in Firestore
-      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDocRef = doc(db, "user", currentUser.uid);
       await updateDoc(userDocRef, formattedData);
 
       setEditing(false);
@@ -207,6 +259,34 @@ const ProfileScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.contentContainer}>
+        {/* Profile Image Section */}
+        <View style={styles.profileImageContainer}>
+          {uploading ? (
+            <View style={styles.profileImagePlaceholder}>
+              <ActivityIndicator size="large" color="#FF8C00" />
+            </View>
+          ) : userData.profileImage ? (
+            <Image
+              source={{ uri: userData.profileImage }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <View style={styles.profileImagePlaceholder}>
+              <Ionicons name="person" size={80} color="#ccc" />
+            </View>
+          )}
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={pickImage}
+            disabled={uploading}
+          >
+            <Ionicons name="camera" size={20} color="white" />
+            <Text style={styles.uploadButtonText}>
+              {userData.profileImage ? "Change Photo" : "Add Photo"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.profileSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -244,18 +324,6 @@ const ProfileScreen = ({ navigation }) => {
               }
               editable={editing}
               placeholder="Enter last name"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Age</Text>
-            <TextInput
-              style={[styles.input, !editing && styles.disabledInput]}
-              value={userData.age}
-              onChangeText={(text) => setUserData({ ...userData, age: text })}
-              editable={editing}
-              placeholder="Enter age"
-              keyboardType="numeric"
             />
           </View>
 
@@ -337,24 +405,6 @@ const ProfileScreen = ({ navigation }) => {
             <Text style={styles.emptyStateText}>No jobs added yet</Text>
           )}
         </View>
-
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
-          {appointments.length > 0 ? (
-            appointments.map((appointment) => (
-              <View key={appointment.id} style={styles.card}>
-                <Text style={styles.cardTitle}>{appointment.title}</Text>
-                <Text style={styles.cardSubtitle}>{appointment.type}</Text>
-                <Text style={styles.cardDate}>
-                  {formatDate(appointment.date)}
-                </Text>
-                <Text>{appointment.notes}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyStateText}>No upcoming appointments</Text>
-          )}
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -396,6 +446,44 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     padding: 20,
+  },
+  // Profile Image Styles
+  profileImageContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 10,
+    borderWidth: 3,
+    borderColor: "#FF8C00",
+  },
+  profileImagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+    borderWidth: 3,
+    borderColor: "#FF8C00",
+  },
+  uploadButton: {
+    backgroundColor: "#FF8C00",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadButtonText: {
+    color: "white",
+    marginLeft: 5,
+    fontWeight: "500",
   },
   profileSection: {
     backgroundColor: "white",

@@ -71,7 +71,6 @@ const BusinessDetailScreen = ({ route, navigation }) => {
     const fetchAdminStatus = async () => {
       const currentUser = getAuth().currentUser;
       if (!currentUser) {
-        console.log("User not signed in yet");
         return;
       }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -6,162 +6,158 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  ImageBackground,
-  ActivityIndicator,
+  Image,
+  SafeAreaView,
 } from "react-native";
-import { collection, getDocs } from "firebase/firestore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { db } from "../../backend/firebase"; // adjust path if needed
 
-// Color scheme based on #FF8008
+// Modern color scheme with orange as accent
 const COLORS = {
   primary: "#FF8008",
   secondary: "#FFA420",
-  accent: "#FF5F6D",
-  background: "#FAFAFA",
-  card: "#FFFFFF",
-  text: "#333333",
-  subtext: "#777777",
+  background: "#FFFFFF",
+  card: "#F8F9FA",
+  text: "#2D3748",
+  subtext: "#718096",
   lightAccent: "#FFF3E0",
+  divider: "#E2E8F0",
 };
 
-// Category icons mapping
-const CATEGORY_ICONS = {
-  "Food & Drink": "food-fork-drink",
-  Shopping: "shopping",
-  Healthcare: "hospital-box",
-  Education: "school",
-  Entertainment: "movie-open",
-  Services: "briefcase",
-  Beauty: "face-woman",
-  Fitness: "dumbbell",
-  // Add more categories as needed
-  default: "store", // Default icon
-};
+// Service data structure
+const CITY_SERVICES = [
+  {
+    id: "medical",
+    name: "Medical Care",
+    icon: "hospital-box",
+    description: "Healthcare services for residents",
+    subCategories: [
+      {
+        id: "General",
+        name: "General Practice",
+        icon: "doctor",
+        description: "Primary healthcare services",
+      },
+      {
+        id: "Pediatrics",
+        name: "Pediatrics",
+        icon: "baby-face-outline",
+        description: "Healthcare for children and infants",
+      },
+    ],
+  },
+  {
+    id: "bus",
+    name: "Bus System",
+    icon: "bus",
+    description: "Public transportation network",
+    subCategories: [],
+  },
+];
+const HOSPITAL_ID = "bethel-hospital";
 
 export default function CityServicesScreen({ navigation }) {
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      setLoading(true);
-      const snap = await getDocs(collection(db, "businesses"));
-      const counts = {};
-
-      snap.docs.forEach((doc) => {
-        const data = doc.data();
-        const cat = data.category;
-        if (!cat) return;
-
-        if (!counts[cat]) counts[cat] = 0;
-        counts[cat] += 1;
-      });
-
-      const list = Object.keys(counts).map((cat) => ({
-        name: cat,
-        count: counts[cat],
-        icon: CATEGORY_ICONS[cat] || CATEGORY_ICONS.default,
-      }));
-
-      setCategories(list.sort((a, b) => a.name.localeCompare(b.name)));
-      setLoading(false);
-    };
-
-    loadCategories();
-  }, []);
-
   const renderHeader = () => (
     <View style={styles.header}>
       <LinearGradient
-        colors={[COLORS.primary, COLORS.secondary]}
+        colors={["#FF8008", "#FFA420"]}
         style={styles.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <Text style={styles.headerTitle}>City Services</Text>
-        <Text style={styles.headerSubtitle}>
-          Discover local businesses and services
-        </Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>City Services</Text>
+            <Text style={styles.headerSubtitle}>
+              Essential services for our community
+            </Text>
+          </View>
+        </View>
       </LinearGradient>
     </View>
   );
 
-  const renderItem = ({ item, index }) => (
+  const renderServiceItem = ({ item }) => (
     <TouchableOpacity
-      style={[
-        styles.item,
-        {
-          backgroundColor: index % 2 === 0 ? COLORS.card : COLORS.lightAccent,
-          transform: [{ translateY: 0 }],
-        },
-      ]}
+      style={styles.serviceCard}
       activeOpacity={0.7}
-      onPress={() =>
-        navigation.navigate("BusinessList", { initialFilter: item.name })
-      }
+      onPress={() => {
+        if (item.subCategories && item.subCategories.length > 0) {
+          // Handle subcategories navigation or expansion
+          navigation.navigate("Slots", {
+            clinicId: item.id,
+            clinicTitle: item.title,
+          });
+        } else {
+          // Navigate to service details directly
+          navigation.navigate("ServiceDetails", { service: item });
+        }
+      }}
     >
-      <View style={styles.iconContainer}>
+      <View style={styles.serviceIconContainer}>
         <MaterialCommunityIcons
           name={item.icon}
           size={28}
           color={COLORS.primary}
         />
       </View>
-      <View style={styles.itemText}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.count}>
-          {item.count} business{item.count !== 1 ? "es" : ""}
-        </Text>
+      <View style={styles.serviceContent}>
+        <Text style={styles.serviceName}>{item.name}</Text>
+        <Text style={styles.serviceDescription}>{item.description}</Text>
+
+        {item.subCategories && item.subCategories.length > 0 && (
+          <View style={styles.subCategoriesContainer}>
+            {item.subCategories.map((subCategory) => (
+              <TouchableOpacity
+                key={subCategory.id}
+                style={styles.subCategoryItem}
+                onPress={() =>
+                  navigation.navigate("Slots", {
+                    clinicId: item.id,
+                    clinicTitle: item.title,
+                  })
+                }
+              >
+                <MaterialCommunityIcons
+                  name={subCategory.icon}
+                  size={18}
+                  color={COLORS.primary}
+                  style={styles.subCategoryIcon}
+                />
+                <Text style={styles.subCategoryName}>{subCategory.name}</Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={16}
+                  color={COLORS.subtext}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={24}
-        color={COLORS.secondary}
-      />
     </TouchableOpacity>
   );
 
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <MaterialCommunityIcons
-        name="store-search"
-        size={64}
-        color={COLORS.subtext}
-      />
-      <Text style={styles.emptyText}>No categories found</Text>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading services...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       <FlatList
-        data={categories}
-        keyExtractor={(item) => item.name}
-        renderItem={renderItem}
+        data={CITY_SERVICES}
+        keyExtractor={(item) => item.id}
+        renderItem={renderServiceItem}
         contentContainerStyle={styles.listContainer}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmpty}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -171,7 +167,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 24,
     borderRadius: 16,
     overflow: "hidden",
     elevation: 3,
@@ -185,79 +181,93 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 24,
   },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",
-    color: COLORS.card,
+    color: COLORS.background,
     marginBottom: 8,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: COLORS.lightAccent,
+    color: COLORS.background,
     opacity: 0.9,
   },
   listContainer: {
     padding: 16,
     paddingTop: 0,
   },
-  item: {
-    borderRadius: 12,
+  serviceCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
     padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 8,
-    elevation: 1,
+    elevation: 2,
     shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  iconContainer: {
+  serviceIconContainer: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: 12,
     backgroundColor: COLORS.lightAccent,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginBottom: 12,
   },
-  itemText: {
+  serviceContent: {
     flex: 1,
   },
-  name: {
-    fontSize: 17,
+  serviceName: {
+    fontSize: 18,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 4,
   },
-  count: {
+  serviceDescription: {
     fontSize: 14,
     color: COLORS.subtext,
+    marginBottom: 12,
+  },
+  subCategoriesContainer: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    paddingTop: 8,
+  },
+  subCategoryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  subCategoryIcon: {
+    marginRight: 8,
+  },
+  subCategoryName: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
   },
   separator: {
-    height: 8,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    fontWeight: "500",
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-  },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: COLORS.subtext,
-    textAlign: "center",
+    height: 16,
   },
 });

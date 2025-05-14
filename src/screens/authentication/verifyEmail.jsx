@@ -27,7 +27,6 @@ const EmailVerificationScreen = ({ navigation }) => {
 
     const checkVerification = setInterval(() => {
       if (currentUser.emailVerified) {
-        console.log("Email verified");
         clearInterval(checkVerification);
         // navigation.replace("Home");
       }
@@ -119,11 +118,12 @@ const EmailVerificationScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.refreshButton}
-            onPress={() =>   currentUser.getIdToken(true)
-              .then(() => {
+            onPress={() =>
+              currentUser.getIdToken(true).then(() => {
                 // After token refresh, reload the user object
                 return user.reload();
-              })}
+              })
+            }
           >
             <Text style={styles.refreshButtonText}>I've verified my email</Text>
           </TouchableOpacity>

@@ -51,11 +51,7 @@ export default function HomeScreen({ navigation }) {
       icon: "briefcase",
       screen: "RegisterBusiness",
     },
-    {
-      title: "Book Appointment",
-      icon: "calendar-clock",
-      screen: "Appointment",
-    },
+
     { title: "City Services", icon: "city", screen: "CityServices" },
   ];
 
@@ -178,23 +174,6 @@ export default function HomeScreen({ navigation }) {
                 It’s a bright day in Bethel City
               </Text>
             </View>
-            {/*
-            // you can re-enable profile image if you like
-            <TouchableOpacity style={styles.profileImageContainer}>
-              {userData.profileImage ? (
-                <Image
-                  source={{ uri: userData.profileImage }}
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View style={styles.profileInitials}>
-                  <Text style={styles.initialsText}>
-                    {userData.name.charAt(0)}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            */}
           </View>
           <TouchableOpacity style={styles.notificationIcon}>
             <MaterialCommunityIcons

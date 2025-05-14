@@ -12,17 +12,7 @@ import {
   StatusBar,
   Platform,
 } from "react-native";
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  Timestamp,
-  setDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc, Timestamp, setDoc } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
 import { useFocusEffect } from "@react-navigation/native";
 

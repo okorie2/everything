@@ -20,10 +20,9 @@ import RegisterBusinessScreen from "./src/screens/business/RegisterBusinessScree
 import BusinessDetailScreen from "./src/screens/business/BusinessDetailScreen";
 import BusinessListScreen from "./src/screens/business/BusinessListScreen"; // adjust if needed
 import { StatusBar } from "react-native";
-import AppointmentNavigator from "./src/navigations/AppointmentNavigator"; // adjust if needed
+import ServiceNavigator from "./src/navigations/ServiceNavigator"; // adjust if needed
 import CalendarScreen from "./src/screens/calendar/CalendarScreen";
 import QueueDetailScreen from "./src/screens/hospital/QueueDetailScreen";
-import CityServicesScreen from "./src/screens/CityServicesScreen";
 import ChatRoomScreen from "./src/screens/ChatRoomScreen"; // adjust if needed
 
 const Stack = createNativeStackNavigator();
@@ -184,7 +183,6 @@ const AuthNavigator = () => {
 const AppNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-    
       <Stack.Screen name="Home" component={BethelNavigator} />
       <Stack.Screen name="Main" component={TabNavs} />
       <Stack.Screen
@@ -193,12 +191,9 @@ const AppNavigator = () => {
       />
       <Stack.Screen name="BusinessList" component={BusinessListScreen} />
       <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
-      <Stack.Screen name="Appointment" component={AppointmentNavigator} />
+      <Stack.Screen name="CityServices" component={ServiceNavigator} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="QueueDetail" component={QueueDetailScreen} />
-
-      <Stack.Screen name="CityServices" component={CityServicesScreen} />
-    
     </Stack.Navigator>
   );
 };
@@ -207,18 +202,15 @@ const AppNavigator = () => {
 const RootNavigator = () => {
   const [currentUser, setCurrentUser] = React.useState(null);
   const isAuthenticated = !!currentUser;
-   const auth = getAuth();
+  const auth = getAuth();
 
   React.useEffect(() => {
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if(user && user.emailVerified){
-        console.log(user, "user")
+      if (user && user.emailVerified) {
         setCurrentUser(user);
-
-      }else{
+      } else {
         setCurrentUser(null);
-        console.log("User is not authenticated or email not verified", user);
       }
     });
 

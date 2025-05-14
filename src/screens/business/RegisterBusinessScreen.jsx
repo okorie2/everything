@@ -56,7 +56,11 @@ const RegisterBusinessScreen = ({ navigation }) => {
       const userOptions = usersSnap.docs.map((doc) => ({
         label: `${doc.data().first_name} ${doc.data().last_name}`,
         value: doc.id,
-        icon: () => <Ionicons name="person-outline" size={18} color="#666" />,
+        icon: () => (
+          <Text>
+            <Ionicons name="person-outline" size={18} color="#666" />
+          </Text>
+        ),
       }));
       setEmployees(userOptions);
     } catch (error) {
@@ -176,12 +180,13 @@ const RegisterBusinessScreen = ({ navigation }) => {
     return (
       <View style={styles.inputContainer}>
         {iconName && (
-          <Ionicons
-            name={iconName}
-            size={20}
-            color={isFocused ? "#FF8008" : hasError ? "#f44336" : "#999"}
-            style={styles.inputIcon}
-          />
+          <Text style={styles.inputIcon}>
+            <Ionicons
+              name={iconName}
+              size={20}
+              color={isFocused ? "#FF8008" : hasError ? "#f44336" : "#999"}
+            />
+          </Text>
         )}
         <TextInput
           style={[
@@ -216,10 +221,12 @@ const RegisterBusinessScreen = ({ navigation }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="chevron-back" size={24} color="#1a2a6c" />
+            <Text>
+              <Ionicons name="chevron-back" size={24} color="#1a2a6c" />
+            </Text>
           </TouchableOpacity>
           <Text style={styles.title}>Register Business</Text>
-          <View style={{ width: 40 }} /> {/* Placeholder for alignment */}
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -315,12 +322,14 @@ const RegisterBusinessScreen = ({ navigation }) => {
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={20}
-                  color="#fff"
-                  style={styles.buttonIcon}
-                />
+                <Text>
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={20}
+                    color="#fff"
+                    style={styles.buttonIcon}
+                  />
+                </Text>
                 <Text style={styles.buttonText}>Register Business</Text>
               </View>
             )}

@@ -12,9 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Calendar } from "react-native-big-calendar";
-import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
-import { HOSPITAL_ID } from "../../constants/hospital";
 import { useCalendarData } from "../../hooks/useCalendarData";
 
 // Date formatting utility
@@ -84,7 +82,6 @@ export default function CalendarScreen({ navigation }) {
     };
 
     if (event.type === "appointment") {
-      // Determine what to display as the reason/description
       const reasonText =
         event.reason ||
         event.description ||
@@ -92,21 +89,11 @@ export default function CalendarScreen({ navigation }) {
         event.fullData?.description ||
         "No details provided";
 
-      // Build a more informative message
       const message = [
         `Date: ${formatDate(event.start)}`,
         `Time: ${formatTime(event.start)} – ${formatTime(event.end)}`,
+        `Place: ${event.businessName}`,
         `Reason: ${reasonText}`,
-        ...(event.clinicName && event.clinicName !== "Unknown Clinic"
-          ? [`Clinic: ${event.clinicName}`]
-          : []),
-        ...(isOwner && event.patientName
-          ? [`Patient: ${event.patientName}`]
-          : []),
-        ...(!isOwner && event.clinicianName
-          ? [`Clinician: ${event.clinicianName}`]
-          : []),
-        ...(event.notes ? [`Notes: ${event.notes}`] : []),
       ].join("\n");
 
       Alert.alert(isOwner ? "Client Appointment" : "My Appointment", message, [
@@ -150,7 +137,7 @@ export default function CalendarScreen({ navigation }) {
       </Text>
       <Text style={styles.eventTime}>{formatTime(evt.start)}</Text>
       <Text style={styles.eventClinic} numberOfLines={1}>
-        {evt.clinicName}
+        {evt.businessName}
       </Text>
     </TouchableOpacity>
   );

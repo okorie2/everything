@@ -34,8 +34,6 @@ export const useCalendarData = (
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // Define refresh function outside the loadData function
-  // so it can be used in useEffect dependencies
   const refresh = useCallback(() => {
     setRefreshing(true);
     loadData();
@@ -48,16 +46,10 @@ export const useCalendarData = (
     setError(null);
 
     try {
-      // Skip user verification - we'll rely on Firebase Auth
-      // and security rules instead of explicit document checks
-
       const allEvents = [];
       const today = new Date();
       const no_of_milliseconds_in_7_days = 7 * 24 * 60 * 60 * 1000;
       const endDate = new Date(today.getTime() + no_of_milliseconds_in_7_days);
-
-      // Wrap each main data fetch in try/catch to prevent one failure from breaking everything
-
       try {
         // 1. Fetch businesses owned by this user
         const businessIds = await fetchUserBusinesses(db, uid);
@@ -349,8 +341,7 @@ async function fetchUserAppointments(db, uid, today) {
             docPath: docSnap.ref.path,
             type: "appointment",
             // Additional details for the appointment
-            description: a.description || "No description provided",
-            notes: a.notes || "",
+            businessName: a.businessName || "Unknown Business",
             reason: a.reason || "",
             status: a.status || "scheduled",
             clinicName: a.clinicName || "Unknown Clinic",

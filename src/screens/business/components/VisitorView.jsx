@@ -8,6 +8,9 @@ import {
   Platform,
   Modal,
   TouchableWithoutFeedback,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { db, auth } from "../../../../backend/firebase";
@@ -37,6 +40,7 @@ const VisitorView = ({ business }) => {
     top: 0,
     left: 0,
   });
+  const [reason, setReason] = useState("");
 
   // Format the date and time for display
   const formatDate = (date) => {
@@ -124,6 +128,14 @@ const VisitorView = ({ business }) => {
     const user = auth.currentUser;
     if (!user) return Alert.alert("Please sign in to book.");
 
+    // Validate reason field
+    if (!reason.trim()) {
+      return Alert.alert(
+        "Missing information",
+        "Please provide a reason for your appointment."
+      );
+    }
+
     const startTime = Timestamp.fromDate(date);
     const endTime = Timestamp.fromDate(
       new Date(date.getTime() + 30 * 60 * 1000)
@@ -133,15 +145,19 @@ const VisitorView = ({ business }) => {
       userId: user.uid,
       clinicianId: business.owner_id,
       businessId: business.id,
+      businessName: business.name,
       start: startTime,
       end: endTime,
+      reason: reason.trim(),
       status: "pending",
       createdAt: Timestamp.now(),
     };
 
     try {
       await addDoc(collection(db, "appointments"), appointment);
-      Alert.alert("Success", "Appointment booked.");
+      Alert.alert("Success", "Your appointment has been scheduled.");
+      // Reset reason field after successful booking
+      setReason("");
     } catch (err) {
       console.error("Booking failed:", err);
       Alert.alert("Error", "Could not book appointment.");
@@ -273,46 +289,74 @@ const VisitorView = ({ business }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.name}>{business.name}</Text>
-        <Text style={styles.category}>{business.category}</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
+          <Text style={styles.name}>{business.name}</Text>
+          <Text style={styles.category}>{business.category}</Text>
 
-        <View style={styles.divider} />
+          <View style={styles.divider} />
 
-        <Text style={styles.sectionTitle}>Schedule an Appointment</Text>
+          <Text style={styles.sectionTitle}>Schedule an Appointment</Text>
 
-        <View style={styles.dateTimeContainer}>
-          <View style={styles.dateContainer}>
-            <Text style={styles.labelText}>Date</Text>
-            <TouchableOpacity
-              style={styles.selector}
-              onPress={handleOpenDatePicker}
-            >
-              <Text style={styles.valueText}>{formatDate(date)}</Text>
-              <Text style={styles.iconText}>📅</Text>
-            </TouchableOpacity>
+          <View style={styles.dateTimeContainer}>
+            <View style={styles.dateContainer}>
+              <Text style={styles.labelText}>Date</Text>
+              <TouchableOpacity
+                style={styles.selector}
+                onPress={handleOpenDatePicker}
+              >
+                <Text style={styles.valueText}>{formatDate(date)}</Text>
+                <Text style={styles.iconText}>📅</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.timeContainer}>
+              <Text style={styles.labelText}>Time</Text>
+              <TouchableOpacity
+                style={styles.selector}
+                onPress={handleOpenTimePicker}
+              >
+                <Text style={styles.valueText}>{formatTime(date)}</Text>
+                <Text style={styles.iconText}>⏰</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.reasonContainer}>
+              <Text style={styles.labelText}>Reason for Appointment</Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Please describe the reason for your visit"
+                placeholderTextColor={COLORS.textLight}
+                value={reason}
+                onChangeText={setReason}
+                multiline={true}
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+              {reason.length > 0 && (
+                <Text style={styles.charCount}>
+                  {reason.length} character{reason.length !== 1 ? "s" : ""}
+                </Text>
+              )}
+            </View>
           </View>
 
-          <View style={styles.timeContainer}>
-            <Text style={styles.labelText}>Time</Text>
-            <TouchableOpacity
-              style={styles.selector}
-              onPress={handleOpenTimePicker}
-            >
-              <Text style={styles.valueText}>{formatTime(date)}</Text>
-              <Text style={styles.iconText}>⏰</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.bookButton, !reason.trim() && styles.disabledButton]}
+            onPress={handleBookAppointment}
+            disabled={!reason.trim()}
+          >
+            <Text style={styles.bookButtonText}>Book Appointment</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.bookButton}
-          onPress={handleBookAppointment}
-        >
-          <Text style={styles.bookButtonText}>Book Appointment</Text>
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Render the appropriate picker for the platform */}
       {Platform.OS === "android" ? (
@@ -323,7 +367,7 @@ const VisitorView = ({ business }) => {
       ) : (
         renderIOSPicker()
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -332,8 +376,11 @@ export default VisitorView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    padding: 16,
+    flexGrow: 1,
   },
   card: {
     backgroundColor: COLORS.card,
@@ -374,6 +421,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   timeContainer: {
+    marginBottom: 16,
+  },
+  reasonContainer: {
     marginBottom: 8,
   },
   labelText: {
@@ -400,11 +450,31 @@ const styles = StyleSheet.create({
   iconText: {
     fontSize: 16,
   },
+  reasonInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    fontSize: 16,
+    color: COLORS.text,
+    minHeight: 100,
+  },
+  charCount: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    alignSelf: "flex-end",
+    marginTop: 4,
+  },
   bookButton: {
     backgroundColor: COLORS.primary,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: "center",
+  },
+  disabledButton: {
+    backgroundColor: COLORS.textLight,
+    opacity: 0.7,
   },
   bookButtonText: {
     color: "#fff",

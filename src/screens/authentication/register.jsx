@@ -10,14 +10,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert
+  Alert,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { setDoc, doc } from "firebase/firestore";
 import { db } from "../../../backend/firebase"; // Adjust the import path as necessary
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useValidateForm } from "../../hooks/useValidateForm"; // Assuming you have a validation function
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged } from "firebase/auth";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 const RegistrationScreen = ({ navigation }) => {
   const [formDetails, setFormDetails] = useState({
@@ -104,17 +109,12 @@ const RegistrationScreen = ({ navigation }) => {
       navigation.navigate("EmailVerification");
       await sendEmailVerification(userCredential.user);
       Alert.alert("Registration successful! Please verify your email.");
-   
     } catch (error) {
       setLoading(false);
 
-      console.log("Error in registration", error);
       Alert.alert("Registration failed." + error.message);
     }
   };
-
-  
-  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,9 +123,7 @@ const RegistrationScreen = ({ navigation }) => {
         style={styles.keyboardAvoidView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View
-            style={styles.header}
-          >
+          <View style={styles.header}>
             {/* Logo placeholder */}
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
@@ -323,7 +321,6 @@ const RegistrationScreen = ({ navigation }) => {
                 secureTextEntry={secureTextEntry}
                 value={formDetails.password}
                 onChangeText={(text) => updateFormField("password", text)}
-            
               />
               <TouchableOpacity
                 onPress={() => setSecureTextEntry(!secureTextEntry)}
@@ -354,7 +351,6 @@ const RegistrationScreen = ({ navigation }) => {
                 onChangeText={(text) =>
                   updateFormField("confirmPassword", text)
                 }
-        
               />
               <TouchableOpacity
                 onPress={() =>
@@ -427,7 +423,7 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 40,
     alignItems: "center",
-    backgroundColor: '#FF8008'
+    backgroundColor: "#FF8008",
   },
   logoContainer: {
     alignItems: "center",

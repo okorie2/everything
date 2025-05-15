@@ -26,6 +26,8 @@ import {
   arrayUnion,
   arrayRemove,
   Timestamp,
+  doc,
+  addDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
 import {
@@ -43,13 +45,13 @@ const fadeAnim = new Animated.Value(0);
 
 export default function SlotListScreen({ route, navigation }) {
   const { clinicId, clinicTitle, clinicImage } = route.params;
-  const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [filterOption, setFilterOption] = useState("all"); // all|morning|afternoon|evening
+  const [appointments, setAppointments] = useState([]);
 
   const userId = auth.currentUser?.uid;
 
@@ -72,11 +74,10 @@ export default function SlotListScreen({ route, navigation }) {
     const end = endOfDay(selectedDate);
 
     const q = query(
-      collection(db, "businesses", HOSPITAL_ID, "clinics", clinicId, "slots"),
-      where("status", "==", "open"),
+      collection(db, "appointments"),
+      where("businessId", "==", HOSPITAL_ID),
       where("start", ">=", Timestamp.fromDate(start)),
-      where("start", "<=", Timestamp.fromDate(end)),
-      orderBy("start")
+      where("end", "<=", Timestamp.fromDate(end))
     );
 
     return onSnapshot(
@@ -88,7 +89,7 @@ export default function SlotListScreen({ route, navigation }) {
           ref: d.ref,
           ...d.data(),
         }));
-        setSlots(arr);
+        setAppointments(arr);
         setLoading(false);
         setRefreshing(false);
       },
@@ -119,11 +120,83 @@ export default function SlotListScreen({ route, navigation }) {
     setTimeout(() => setRefreshing(false), 500);
   };
 
+  const slots = useMemo(() => {
+    const slotStartHr = 9; // 9 AM
+    const slotEndHr = 17; // 5 PM
+    const slotDurationHr = 1; // 1 hour
+    const maxCapacityPerSlot = 20; // Maximum appointments per slot
+
+    // Create array to hold all slots
+    const timeSlots = [];
+
+    if (!selectedDate) return timeSlots;
+
+    // Clone the selected date to avoid modifying the original
+    const currentDate = new Date(selectedDate);
+
+    // Set the date to start at the first slot time
+    currentDate.setHours(slotStartHr, 0, 0, 0);
+
+    // Generate slots from start hour to end hour
+    for (let hour = slotStartHr; hour < slotEndHr; hour++) {
+      // Create slot start time
+      const slotStart = new Date(currentDate);
+
+      // Create slot end time (1 hour later)
+      const slotEnd = new Date(currentDate);
+      slotEnd.setHours(hour + slotDurationHr);
+      console.log(appointments, "appointments");
+
+      // Count appointments that fall within this time slot
+      const appointmentsInSlot = appointments.filter((appointment) => {
+        const appointmentStart = appointment.start.toDate();
+        const appointmentEnd = appointment.end.toDate();
+
+        // Check if appointment overlaps with the current slot
+        return (
+          // Appointment starts during the slot
+          (appointmentStart >= slotStart && appointmentStart < slotEnd) ||
+          // Appointment ends during the slot
+          (appointmentEnd > slotStart && appointmentEnd <= slotEnd) ||
+          // Appointment spans the entire slot
+          (appointmentStart <= slotStart && appointmentEnd >= slotEnd)
+        );
+      });
+
+      // Calculate remaining capacity
+      const remainingCapacity = maxCapacityPerSlot - appointmentsInSlot.length;
+
+      // Format time for display (e.g., "9:00 AM")
+      const formattedTime = slotStart.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      // Add slot to array
+      timeSlots.push({
+        time: formattedTime,
+        date: new Date(slotStart),
+        remainingCapacity,
+        available: remainingCapacity > 0,
+        slotStart,
+        slotEnd,
+        bookedCount: appointmentsInSlot.length,
+        isBooked: appointmentsInSlot.some((a) => a.userId === userId),
+      });
+
+      // Move to next slot
+      currentDate.setHours(hour + 1);
+    }
+
+    return timeSlots;
+  }, [appointments, selectedDate, userId]);
+
   // Filter by time of day
   const filteredSlots = useMemo(() => {
     if (filterOption === "all") return slots;
     return slots.filter((s) => {
-      const hr = s.start.toDate().getHours();
+      const hr = s.date.getHours();
       if (filterOption === "morning") return hr >= 6 && hr < 12;
       if (filterOption === "afternoon") return hr >= 12 && hr < 17;
       if (filterOption === "evening") return hr >= 17 && hr < 23;
@@ -134,9 +207,7 @@ export default function SlotListScreen({ route, navigation }) {
   // Stats
   const availabilityStats = useMemo(() => {
     const total = filteredSlots.length;
-    const available = filteredSlots.filter(
-      (s) => (s.booked ?? []).length < s.capacity
-    ).length;
+    const available = filteredSlots.filter((s) => !s.available).length;
     return {
       total,
       available,
@@ -155,21 +226,26 @@ export default function SlotListScreen({ route, navigation }) {
     setBookingInProgress(true);
 
     try {
-      const snap = await getDoc(slot.ref);
-      const data = snap.data();
-      if ((data.booked ?? []).length >= data.capacity) {
+      if (!slot.available) {
         throw new Error("Slot is full");
       }
-      await updateDoc(slot.ref, {
-        booked: arrayUnion(userId),
-        lastUpdated: Timestamp.now(),
-      });
-      // update locally
-      setSlots((prev) =>
-        prev.map((s) =>
-          s.id === slot.id ? { ...s, booked: [...(s.booked ?? []), userId] } : s
-        )
-      );
+      const ref = doc(db, "businesses", HOSPITAL_ID);
+      const snap = await getDoc(ref);
+      const business = snap.data();
+      const appointment = {
+        userId: userId,
+        clinicianId: business.owner_id,
+        businessId: HOSPITAL_ID,
+        businessName: business.name,
+        start: slot.slotStart,
+        end: slot.slotEnd,
+        reason: "medical",
+        status: "pending",
+        createdAt: Timestamp.now(),
+      };
+      await addDoc(collection(db, "appointments"), appointment);
+      Alert.alert("Success", "Your appointment has been scheduled.");
+
       const msg = "Appointment booked!";
       if (Platform.OS === "android") {
         ToastAndroid.show(msg, ToastAndroid.SHORT);
@@ -266,13 +342,12 @@ export default function SlotListScreen({ route, navigation }) {
 
   // Slot card
   const renderItem = ({ item }) => {
-    const start = item.start.toDate();
-    const end = item.end.toDate();
+    const start = item.slotStart;
+    const end = item.slotEnd;
     const duration = differenceInMinutes(end, start);
-    const bookedCount = (item.booked ?? []).length;
-    const spotsLeft = item.capacity - bookedCount;
-    const isFull = spotsLeft <= 0;
-    const isBooked = (item.booked ?? []).includes(userId);
+    const spotsLeft = item.remainingCapacity || 0;
+    const isFull = !item.available;
+    const isBooked = item.isBooked;
 
     return (
       <Animated.View style={[styles.slotCard, { opacity: fadeAnim }]}>

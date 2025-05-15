@@ -12,7 +12,6 @@ import {
   StatusBar,
   Image,
   Animated,
-  Dimensions,
   Platform,
   ToastAndroid,
 } from "react-native";
@@ -40,7 +39,6 @@ import {
 } from "date-fns";
 import { HOSPITAL_ID } from "../../constants/hospital";
 
-const { width: windowWidth } = Dimensions.get("window");
 const fadeAnim = new Animated.Value(0);
 
 export default function SlotListScreen({ route, navigation }) {
@@ -355,7 +353,7 @@ export default function SlotListScreen({ route, navigation }) {
       </SafeAreaView>
     );
   }
-
+  console.log(clinicImage, clinicId, "clinicImage");
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />

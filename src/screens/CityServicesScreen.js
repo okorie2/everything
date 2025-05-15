@@ -38,12 +38,16 @@ const CITY_SERVICES = [
         name: "General Practice",
         icon: "doctor",
         description: "Primary healthcare services",
+        image:
+          "https://storage.googleapis.com/community-app-913ab.appspot.com/b3531b4f-istockphoto-1419877131-612x612.jpg",
       },
       {
         id: "Pediatrics",
         name: "Pediatrics",
         icon: "baby-face-outline",
         description: "Healthcare for children and infants",
+        image:
+          "https://storage.googleapis.com/community-app-913ab.appspot.com/6b8d0d29-Screenshot%202025-05-15%20at%2000.57.32.png",
       },
     ],
   },
@@ -55,7 +59,6 @@ const CITY_SERVICES = [
     subCategories: [],
   },
 ];
-const HOSPITAL_ID = "bethel-hospital";
 
 export default function CityServicesScreen({ navigation }) {
   const renderHeader = () => (
@@ -92,8 +95,9 @@ export default function CityServicesScreen({ navigation }) {
         if (item.subCategories && item.subCategories.length > 0) {
           // Handle subcategories navigation or expansion
           navigation.navigate("Slots", {
-            clinicId: item.id,
-            clinicTitle: item.title,
+            clinicId: item.subCategories.id,
+            clinicTitle: item.subCategories.title,
+            clinicImage: subCategory.image,
           });
         } else {
           // Navigate to service details directly
@@ -120,8 +124,9 @@ export default function CityServicesScreen({ navigation }) {
                 style={styles.subCategoryItem}
                 onPress={() =>
                   navigation.navigate("Slots", {
-                    clinicId: item.id,
-                    clinicTitle: item.title,
+                    clinicId: subCategory.id,
+                    clinicTitle: subCategory.title,
+                    clinicImage: subCategory.image,
                   })
                 }
               >

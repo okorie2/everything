@@ -5,7 +5,7 @@ import CalculatorScreen from "./src/screens/calculatorScreen";
 import AccountScreen from "./src/screens/accountScreen";
 import LoginScreen from "./src/screens/authentication/loginScreen";
 import LandingPage from "./src/screens/landingScreen";
-import HomeScreen from "./src/screens/home";
+import HomeScreen from "./src/screens/dashboard/dashboardScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { NavigationContainer } from "@react-navigation/native";
 import TicTacToeScreen from "./src/screens/games/tictactoe";

@@ -62,6 +62,7 @@ const RegisterBusinessScreen = ({ navigation }) => {
           </Text>
         ),
       }));
+      console.log("Fetched users:", userOptions);
       setEmployees(userOptions);
     } catch (error) {
       console.error("Failed to fetch users:", error);

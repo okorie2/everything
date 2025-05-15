@@ -18,8 +18,8 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../../../backend/firebase"; // adjust path
-import { Ionicons } from "@expo/vector-icons"; // Make sure to install expo/vector-icons
+import { db } from "../../../backend/firebase";
+import { Ionicons } from "@expo/vector-icons";
 import { getAuth } from "firebase/auth";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -27,13 +27,13 @@ import {
   CATEGORY_ICONS,
   COLORS,
   businessListStyles as styles,
-} from "./styles/BusinessListStyle"; // adjust path
+} from "./styles/BusinessListStyle";
 import BusinessExplorerHeader from "./components/BusinessExploreHeader";
 import { BusinessCategoryFilter } from "./components/BusinessCategoryFilter";
 import { BusinessListItem } from "./components/BusinessListItem";
 
 const BusinessListScreen = ({ navigation, route }) => {
-  const initialFilter = route?.params?.initialFilter || "All"; // Default to "All"
+  const initialFilter = route?.params?.initialFilter || "All";
   const [businesses, setBusinesses] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,126 +41,126 @@ const BusinessListScreen = ({ navigation, route }) => {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState(initialFilter);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [viewMode, setViewMode] = useState("approved"); // 'approved' | 'pending'
+  const [viewMode, setViewMode] = useState("approved");
   const [scrollY] = useState(new Animated.Value(0));
 
   const auth = getAuth();
 
+  // Simplified fetch function
   const fetchBusinesses = useCallback(async () => {
     try {
       setLoading(true);
-      const uid = getAuth().currentUser?.uid || "";
+      const uid = auth.currentUser?.uid || "";
 
-      const conditions = [where("status", "==", viewMode)];
-      const q = query(collection(db, "businesses"), ...conditions);
-      const snap = await getDocs(q);
-      const list = snap.docs.map((d) => ({
-        id: `${d.id}-list`,
-        docId: d.id,
-        ...d.data(),
-      }));
+      // Get businesses with the current viewMode status
+      const statusQuery = query(
+        collection(db, "businesses"),
+        where("status", "==", viewMode)
+      );
+      const statusSnap = await getDocs(statusQuery);
 
-      // If user owns businesses, include theirs too
-      let mine = [];
-      if (uid) {
-        const mineQ = query(
-          collection(db, "businesses"),
-          where("owner_id", "==", uid),
-          where("status", "==", viewMode)
-        );
+      // Get user's own businesses with the current viewMode
+      const userQuery = uid
+        ? query(
+            collection(db, "businesses"),
+            where("owner_id", "==", uid),
+            where("status", "==", viewMode)
+          )
+        : null;
 
-        const mineSnap = await getDocs(mineQ);
-        mine = mineSnap.docs
-          .map((d) => ({
-            id: `${d.id}-mine`,
-            docId: d.id,
-            ...d.data(),
-          }))
-          .filter((b) => b.status === viewMode);
+      const userSnap = userQuery ? await getDocs(userQuery) : null;
+
+      // Combine and deduplicate results
+      const allBusinesses = [];
+
+      statusSnap.docs.forEach((doc) => {
+        if (doc.data().name !== "Bethel City Hospital") {
+          allBusinesses.push({
+            id: doc.id,
+            docId: doc.id,
+            ...doc.data(),
+          });
+        }
+      });
+
+      if (userSnap) {
+        userSnap.docs.forEach((doc) => {
+          if (
+            doc.data().name !== "Bethel City Hospital" &&
+            !allBusinesses.some((b) => b.docId === doc.id)
+          ) {
+            allBusinesses.push({
+              id: doc.id,
+              docId: doc.id,
+              ...doc.data(),
+            });
+          }
+        });
       }
 
-      const mergedRaw = [...list, ...mine].filter(
-        (b) => b.name !== "Bethel City Hospital"
-      );
-
-      const merged = Object.values(
-        mergedRaw.reduce((acc, curr) => {
-          acc[curr.docId] = curr;
-          return acc;
-        }, {})
-      );
-      setBusinesses(merged);
-
-      // Apply active filter
-      let filtered = merged;
-      if (activeFilter !== "All") {
-        filtered = filtered.filter((b) => b.category === activeFilter);
-      }
-      setFiltered(filtered);
+      setBusinesses(allBusinesses);
+      applyFilters(allBusinesses, search, activeFilter);
     } catch (err) {
       console.error("BUSINESS QUERY ERROR →", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [viewMode]);
+  }, [viewMode, search, activeFilter, auth.currentUser]);
 
-  useEffect(() => {
-    fetchBusinesses();
-  }, []);
+  // Simplified filter function
+  const applyFilters = (data, searchText, categoryFilter) => {
+    let result = [...data];
 
+    if (searchText) {
+      result = result.filter((business) =>
+        business.name.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+
+    if (categoryFilter !== "All") {
+      result = result.filter(
+        (business) => business.category === categoryFilter
+      );
+    }
+
+    setFiltered(result);
+  };
+
+  // Check admin status
   useEffect(() => {
     const checkAdminStatus = async () => {
       const uid = auth.currentUser?.uid;
       if (!uid) return;
-      const snap = await getDoc(doc(db, "user", uid));
-      if (snap.exists()) {
-        setIsAdmin(!!snap.data().isAdmin);
+
+      const userDoc = await getDoc(doc(db, "user", uid));
+      if (userDoc.exists()) {
+        setIsAdmin(!!userDoc.data().isAdmin);
       }
     };
-    checkAdminStatus();
-  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
+    checkAdminStatus();
+  }, [auth.currentUser]);
+
+  // Fetch businesses when component mounts or when viewMode changes
+  useEffect(() => {
     fetchBusinesses();
-  };
+  }, [fetchBusinesses, viewMode]);
 
   const handleSearch = (text) => {
     setSearch(text);
-    filterData(text, activeFilter);
+    applyFilters(businesses, text, activeFilter);
   };
 
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
-    filterData(search, filter);
+    applyFilters(businesses, search, filter);
   };
 
-  const filterData = (searchText, categoryFilter) => {
-    let result = businesses;
-    if (searchText) {
-      result = result.filter((b) =>
-        b.name.toLowerCase().includes(searchText.toLowerCase())
-      );
-    }
-    if (categoryFilter !== "All") {
-      result = result.filter((b) => b.category === categoryFilter);
-    }
-    setFiltered(result);
-  };
-
-  const handleGoBack = () => {
-    navigation.goBack();
-  };
-
-  const categories = ["All", ...new Set(businesses.map((b) => b.category))];
-
-  const getCategoryIcon = (category) => {
-    return CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
-  };
-
-  const getCategoryColor = (category) => {
-    return CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
+  const resetFilters = () => {
+    setSearch("");
+    setActiveFilter("All");
+    setFiltered(businesses);
   };
 
   // Animation values
@@ -192,11 +192,7 @@ const BusinessListScreen = ({ navigation, route }) => {
       </Text>
       <TouchableOpacity
         style={styles.resetButton}
-        onPress={() => {
-          setSearch("");
-          setActiveFilter("All");
-          setFiltered(businesses);
-        }}
+        onPress={resetFilters}
         activeOpacity={0.8}
       >
         <LinearGradient
@@ -228,21 +224,29 @@ const BusinessListScreen = ({ navigation, route }) => {
     );
   }
 
+  // Get unique categories from businesses
+  const categories = [
+    "All",
+    ...Array.from(new Set(businesses.map((b) => b.category))),
+  ];
+
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+
       <BusinessExplorerHeader
         navigation={navigation}
         COLORS={COLORS}
         activeFilter={activeFilter}
-        filterData={filterData}
-        handleGoBack={handleGoBack}
+        handleGoBack={() => navigation.goBack()}
         handleSearch={handleSearch}
         search={search}
         setSearch={setSearch}
         headerHeight={headerHeight}
         headerOpacity={headerOpacity}
       />
+
+      <View style={{ height: 80 }} />
 
       {isAdmin && (
         <View style={styles.tabToggleContainer}>
@@ -251,10 +255,7 @@ const BusinessListScreen = ({ navigation, route }) => {
               styles.tabButton,
               viewMode === "approved" && styles.tabButtonActive,
             ]}
-            onPress={() => {
-              setViewMode("approved");
-              fetchBusinesses();
-            }}
+            onPress={() => setViewMode("approved")}
           >
             <Text
               style={[
@@ -270,10 +271,7 @@ const BusinessListScreen = ({ navigation, route }) => {
               styles.tabButton,
               viewMode === "pending_approval" && styles.tabButtonActive,
             ]}
-            onPress={() => {
-              setViewMode("pending_approval");
-              fetchBusinesses();
-            }}
+            onPress={() => setViewMode("pending_approval")}
           >
             <Text
               style={[
@@ -283,28 +281,17 @@ const BusinessListScreen = ({ navigation, route }) => {
             >
               Pending
             </Text>
-            {viewMode !== "pending_approval" &&
-              businesses.filter((b) => b.status === "pending_approval").length >
-                0 && (
-                <View style={styles.badgeContainer}>
-                  <Text style={styles.badgeText}>
-                    {
-                      businesses.filter((b) => b.status === "pending_approval")
-                        .length
-                    }
-                  </Text>
-                </View>
-              )}
           </TouchableOpacity>
         </View>
       )}
-      <View style={{ height: 80 }} />
 
       <BusinessCategoryFilter
         COLORS={COLORS}
         activeFilter={activeFilter}
         categories={categories}
-        getCategoryIcon={getCategoryIcon}
+        getCategoryIcon={(category) =>
+          CATEGORY_ICONS[category] || CATEGORY_ICONS.default
+        }
         handleFilterChange={handleFilterChange}
       />
 
@@ -315,8 +302,12 @@ const BusinessListScreen = ({ navigation, route }) => {
           <BusinessListItem
             item={item}
             index={index}
-            getCategoryColor={getCategoryColor}
-            getCategoryIcon={getCategoryIcon}
+            getCategoryColor={(category) =>
+              CATEGORY_COLORS[category] || CATEGORY_COLORS.default
+            }
+            getCategoryIcon={(category) =>
+              CATEGORY_ICONS[category] || CATEGORY_ICONS.default
+            }
             navigation={navigation}
           />
         )}
@@ -327,7 +318,7 @@ const BusinessListScreen = ({ navigation, route }) => {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={fetchBusinesses}
             colors={[COLORS.primary, COLORS.secondary]}
             tintColor={COLORS.primary}
           />

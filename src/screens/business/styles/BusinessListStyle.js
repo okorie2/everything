@@ -1,6 +1,7 @@
 import { StyleSheet, Platform, Dimensions } from "react-native";
 
 // Enhanced color palette based on #FF8008
+
 export const COLORS = {
   primary: "#FF8008",
   // Orange - active primary

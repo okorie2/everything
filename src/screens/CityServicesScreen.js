@@ -97,7 +97,7 @@ export default function CityServicesScreen({ navigation }) {
           navigation.navigate("Slots", {
             clinicId: item.subCategories.id,
             clinicTitle: item.subCategories.title,
-            clinicImage: subCategory.image,
+            clinicImage: item.subCategories.image,
           });
         } else {
           // Navigate to service details directly

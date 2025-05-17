@@ -65,6 +65,13 @@ const LandingPage = ({ navigation }) => {
             >
               <Text style={styles.heroButtonText}>Join us</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.heroButtonReverse}
+              onPress={() => navigation.navigate("Login")}
+            >
+              <Text style={styles.heroButtonTextReverse}>Sign In</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Vision Section */}
@@ -231,6 +238,21 @@ const styles = StyleSheet.create({
     color: "#1a2a6c",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  heroButtonTextReverse: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  heroButtonReverse: {
+    backgroundColor: "#1a2a6c",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginTop: 10,
+    width: 120,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   visionSection: {

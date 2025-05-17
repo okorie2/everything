@@ -220,14 +220,13 @@ export default function SlotListScreen({ route, navigation }) {
   // Stats
   const availabilityStats = useMemo(() => {
     const total = filteredSlots.length;
-    const available = filteredSlots.filter((s) => !s.available).length;
+    const available = filteredSlots.filter((s) => s.available).length;
     return {
       total,
       available,
       percent: total ? Math.round((available / total) * 100) : 0,
     };
   }, [filteredSlots]);
-  console.log(filteredSlots, "filteredSlots");
 
   // Reserve
   const bookSlot = async (slot) => {

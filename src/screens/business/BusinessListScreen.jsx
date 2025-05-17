@@ -254,7 +254,7 @@ const BusinessListScreen = ({ navigation, route }) => {
         headerOpacity={headerOpacity}
       />
 
-      <View style={{ height: 80 }} />
+      <View style={{ height:150 }} />
 
       {isAdmin && (
         <View style={styles.tabToggleContainer}>

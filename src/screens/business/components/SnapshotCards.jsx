@@ -87,11 +87,7 @@ export default function SnapshotCards({ business }) {
 
   return (
     <View style={styles.wrapper}>
-      <Card
-        label="Revenue this month"
-        value={usd.format(revenue)} // ← instead of `₦ ${revenue.toLocaleString()}`
-        color={COLORS.revenue}
-      />
+
       <Card label="Employees" value={employeeCount} color={COLORS.employees} />
       <Card label="Deadlines ≤ 7 d" value={dueSoon} color={COLORS.deadlines} />
     </View>

@@ -17,12 +17,7 @@ import { setDoc, doc } from "firebase/firestore";
 import { db } from "../../../backend/firebase"; // Adjust the import path as necessary
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useValidateForm } from "../../hooks/useValidateForm"; // Assuming you have a validation function
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  onAuthStateChanged,
-} from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 
 const RegistrationScreen = ({ navigation }) => {
   const [formDetails, setFormDetails] = useState({
@@ -106,9 +101,7 @@ const RegistrationScreen = ({ navigation }) => {
         relationship: formDetails.relationship,
       });
       setLoading(false);
-      navigation.navigate("EmailVerification");
-      await sendEmailVerification(userCredential.user);
-      Alert.alert("Registration successful! Please verify your email.");
+      navigation.navigate("Home");
     } catch (error) {
       setLoading(false);
 

@@ -14,7 +14,7 @@ const { width } = Dimensions.get("window");
 // Tooltip descriptions for each stat
 const TOOLTIP_INFO = {
   bookings: "Total count of appointments booked through the app",
-  applications: "Number of service applications you've submitted",
+  applications: "Number of pending service applications you've submitted",
 };
 
 export default function StatsSection({ counts }) {

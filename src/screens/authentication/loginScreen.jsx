@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -11,48 +11,42 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  Alert
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { auth } from '../../../backend/firebase'; // Import your Firebase config
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useValidateForm } from '../../hooks/useValidateForm'; // Custom hook for form validation
-import {storeLocalData} from '../../util/localStorage'; // Import your local storage utility
+  Alert,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { auth } from "../../../backend/firebase"; // Import your Firebase config
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useValidateForm } from "../../hooks/useValidateForm"; // Custom hook for form validation
 
 const LoginScreen = ({ navigation }) => {
- const [formDetails, setFormDetails] = useState({
-    email: '',
-    password: '',
+  const [formDetails, setFormDetails] = useState({
+    email: "",
+    password: "",
   });
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const { height } = Dimensions.get('window');
+  const { height } = Dimensions.get("window");
   const headerHeight = height * 0.35; // 35% of screen height
 
-const { validateForm } = useValidateForm(formDetails, setErrors);
+  const { validateForm } = useValidateForm(formDetails, setErrors);
 
-const handleLogin = async () => {
-    const isValid = validateForm()
+  const handleLogin = async () => {
+    const isValid = validateForm();
     if (!isValid) return;
     setLoading(true);
     try {
- await signInWithEmailAndPassword(auth, formDetails.email, formDetails.password);
-    setLoading(false);
-      
-      // Check if email is verified
-      if (!user.emailVerified) {
-        Alert.alert(
-          'Email Verification Required',
-          'Please verify your email address to continue.',
-        )
-        navigation.navigate('EmailVerification');
-      } else {
-        navigation.replace('Home');
-      }
+      await signInWithEmailAndPassword(
+        auth,
+        formDetails.email,
+        formDetails.password
+      );
+      setLoading(false);
+
+      // navigation.replace("Home");
     } catch (error) {
-      let errorMessage = 'Login failed. Please check your credentials.'; 
+      let errorMessage = "Login failed. Please check your credentials.";
       setErrors({ auth: errorMessage });
     } finally {
       setLoading(false);
@@ -66,7 +60,7 @@ const handleLogin = async () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidView}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           bounces={false}
         >
@@ -107,7 +101,7 @@ const handleLogin = async () => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={formDetails}
-                onChangeText={(e)=>{
+                onChangeText={(e) => {
                   setFormDetails({ ...formDetails, email: e });
                   setErrors({ ...errors, email: null });
                 }}
@@ -132,14 +126,15 @@ const handleLogin = async () => {
                 placeholder="Password"
                 secureTextEntry={secureTextEntry}
                 value={formDetails.password}
-                onChangeText={(e)=>{
+                onChangeText={(e) => {
                   setFormDetails({ ...formDetails, password: e });
                   setErrors({ ...errors, password: null });
-                }
-                }
+                }}
                 textContentType="password"
               />
-              <TouchableOpacity onPress={() => setSecureTextEntry(!secureTextEntry)}>
+              <TouchableOpacity
+                onPress={() => setSecureTextEntry(!secureTextEntry)}
+              >
                 <Icon
                   name={secureTextEntry ? "eye-off" : "eye"}
                   size={20}
@@ -152,7 +147,7 @@ const handleLogin = async () => {
             )}
 
             {/* Forgot Password */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.forgotPasswordLink}
               onPress={() => navigation.navigate("ForgotPassword")}
             >
@@ -210,8 +205,8 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     alignItems: "center",
-    backgroundColor: '#FF8008',
-    justifyContent: 'center',
+    backgroundColor: "#FF8008",
+    justifyContent: "center",
   },
   logoContainer: {
     alignItems: "center",
@@ -259,18 +254,18 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 40,
     flex: 1,
-    minHeight: '65%', // Ensure content takes at least 65% of screen height
+    minHeight: "65%", // Ensure content takes at least 65% of screen height
   },
   errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffebee',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffebee",
     padding: 15,
     borderRadius: 10,
     marginBottom: 20,
   },
   authErrorText: {
-    color: '#b21f1f',
+    color: "#b21f1f",
     marginLeft: 10,
     flex: 1,
   },
@@ -301,13 +296,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   forgotPasswordLink: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginBottom: 20,
   },
   forgotPasswordText: {
     color: "#1a2a6c",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   loginButton: {
     backgroundColor: "#1a2a6c",
@@ -326,23 +321,23 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 25,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: "#ddd",
   },
   dividerText: {
     paddingHorizontal: 15,
-    color: '#666',
+    color: "#666",
     fontSize: 14,
   },
   socialLoginContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 25,
   },
 

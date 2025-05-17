@@ -7,10 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  Dimensions,
   StatusBar,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getAuth } from "firebase/auth";
 import {
@@ -71,12 +69,12 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     if (!user) return;
 
+    // Set up appointments listener
     const unsubAppointments = onSnapshot(
       query(collection(db, "appointments"), where("userId", "==", user.uid)),
       (apptSnap) => {
         const totalBookings = apptSnap.size;
 
-        // We'll count the other docs in another listener below
         setCounts((prev) => ({
           ...prev,
           bookings: totalBookings,
@@ -84,13 +82,20 @@ export default function HomeScreen({ navigation }) {
       }
     );
 
+    // Track business listener so we can unsubscribe later
+    let unsubBiz = () => {};
+
+    // Set up jobs listener
     const unsubJobs = onSnapshot(
       query(collection(db, "jobs"), where("userId", "==", user.uid)),
       (jobsSnap) => {
         const totalJobs = jobsSnap.size;
 
-        // Now combine with business listener
-        const unsubBiz = onSnapshot(
+        // Unsubscribe from any previous business listener
+        unsubBiz();
+
+        // Set up new business listener
+        unsubBiz = onSnapshot(
           query(
             collection(db, "businesses"),
             where("owner_id", "==", user.uid),
@@ -105,16 +110,14 @@ export default function HomeScreen({ navigation }) {
             }));
           }
         );
-
-        // return inner unsubscribe
-        return unsubBiz;
       }
     );
 
-    // Cleanup listeners on unmount or user change
+    // Full cleanup
     return () => {
       unsubAppointments();
       unsubJobs();
+      unsubBiz(); // very important
     };
   }, [user]);
 
@@ -163,7 +166,9 @@ export default function HomeScreen({ navigation }) {
       const unique = [
         ...new Set(snap.docs.map((doc) => doc.data().category).filter(Boolean)),
       ];
-      setCategories(unique.slice(0, 3)); // Show first 3 only
+      // Filter out "Food and Confectionery" category
+      const filtered = unique.filter((cat) => cat !== "Food and Confectionery");
+      setCategories(filtered.slice(0, 3)); // Show first 3 only
     };
 
     fetchCategories();
@@ -262,7 +267,9 @@ export default function HomeScreen({ navigation }) {
                 key={i}
                 style={styles.quickAccessItem}
                 onPress={() =>
-                  navigation.navigate("BusinessList", { initialFilter: label })
+                  navigation.navigate("BusinessList", {
+                    initialFilter: label,
+                  })
                 }
               >
                 <View
@@ -277,6 +284,7 @@ export default function HomeScreen({ navigation }) {
                     color={i === 0 ? "#FFF" : "#666"}
                   />
                 </View>
+
                 <Text style={styles.quickAccessText}>{label}</Text>
               </TouchableOpacity>
             ))}

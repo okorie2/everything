@@ -57,7 +57,11 @@ export default function SlotListScreen({ route, navigation }) {
 
   // Next 14 days for date-picker
   const dateOptions = useMemo(
-    () => Array.from({ length: 14 }, (_, i) => addDays(new Date(), i)),
+    () =>
+      Array.from({ length: 14 }, (_, i) => ({
+        key: i.toString(),
+        date: addDays(new Date(), i),
+      })),
     []
   );
 
@@ -70,40 +74,46 @@ export default function SlotListScreen({ route, navigation }) {
 
   // Real-time listener for slots on selectedDate
   const setupRealtimeListener = useCallback(() => {
-    const start = startOfDay(selectedDate);
-    const end = endOfDay(selectedDate);
+    try {
+      if (!auth.currentUser) return () => {}; // no-op if user is not signed in
+      const start = startOfDay(selectedDate);
+      const end = endOfDay(selectedDate);
 
-    const q = query(
-      collection(db, "appointments"),
-      where("businessId", "==", HOSPITAL_ID),
-      where("start", ">=", Timestamp.fromDate(start)),
-      where("end", "<=", Timestamp.fromDate(end))
-    );
+      const q = query(
+        collection(db, "appointments"),
+        where("businessId", "==", HOSPITAL_ID),
+        where("start", ">=", Timestamp.fromDate(start)),
+        where("end", "<=", Timestamp.fromDate(end))
+      );
 
-    return onSnapshot(
-      q,
-      (snap) => {
-        setError(null);
-        const arr = snap.docs.map((d) => ({
-          id: d.id,
-          ref: d.ref,
-          ...d.data(),
-        }));
-        setAppointments(arr);
-        setLoading(false);
-        setRefreshing(false);
-      },
-      (err) => {
-        console.error("Realtime slots error:", err);
-        setError("Could not load slots in real time.");
-        setLoading(false);
-        setRefreshing(false);
-      }
-    );
+      return onSnapshot(
+        q,
+        (snap) => {
+          setError(null);
+          const arr = snap.docs.map((d) => ({
+            id: d.id,
+            ref: d.ref,
+            ...d.data(),
+          }));
+          setAppointments(arr);
+          setLoading(false);
+          setRefreshing(false);
+        },
+        (err) => {
+          console.error("Realtime slots error:", err);
+          setError("Could not load slots in real time.");
+          setLoading(false);
+          setRefreshing(false);
+        }
+      );
+    } catch (error) {
+      console.error("Error setting up realtime listener:", error);
+    }
   }, [clinicId, selectedDate]);
 
   // Hook into that listener
   useEffect(() => {
+    if (!auth.currentUser) return;
     setLoading(true);
     const unsubscribe = setupRealtimeListener();
     Animated.timing(fadeAnim, {
@@ -112,7 +122,7 @@ export default function SlotListScreen({ route, navigation }) {
       useNativeDriver: true,
     }).start();
     return unsubscribe;
-  }, [setupRealtimeListener]);
+  }, [setupRealtimeListener, auth.currentUser]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -174,16 +184,28 @@ export default function SlotListScreen({ route, navigation }) {
       });
 
       // Add slot to array
-      timeSlots.push({
-        time: formattedTime,
-        date: new Date(slotStart),
-        remainingCapacity,
-        available: remainingCapacity > 0,
-        slotStart,
-        slotEnd,
-        bookedCount: appointmentsInSlot.length,
-        isBooked: appointmentsInSlot.some((a) => a.userId === userId),
-      });
+      if (slotStart > new Date()) {
+        timeSlots.push({
+          time: formattedTime,
+          date: new Date(slotStart),
+          remainingCapacity,
+          available: remainingCapacity > 0,
+          slotStart,
+          slotEnd,
+          bookedCount: appointmentsInSlot.length,
+          isBooked: appointmentsInSlot.some((a) => a.userId === userId),
+        });
+      }
+      // timeSlots.push({
+      //   time: formattedTime,
+      //   date: new Date(slotStart),
+      //   remainingCapacity,
+      //   available: remainingCapacity > 0,
+      //   slotStart,
+      //   slotEnd,
+      //   bookedCount: appointmentsInSlot.length,
+      //   isBooked: appointmentsInSlot.some((a) => a.userId === userId),
+      // });
 
       // Move to next slot
       currentDate.setHours(hour + 1);
@@ -298,18 +320,18 @@ export default function SlotListScreen({ route, navigation }) {
   // Date picker item
   const renderDateOption = ({ item }) => {
     const isSel =
-      item.getDate() === selectedDate.getDate() &&
-      item.getMonth() === selectedDate.getMonth();
+      item.date.getDate() === selectedDate.getDate() &&
+      item.date.getMonth() === selectedDate.getMonth();
     return (
       <TouchableOpacity
         style={[styles.dateOption, isSel && styles.selectedDateOption]}
-        onPress={() => setSelectedDate(item)}
+        onPress={() => setSelectedDate(item.date)}
       >
         <Text style={[styles.dateDay, isSel && styles.selectedDateText]}>
-          {format(item, "EEE")}
+          {format(item.date, "EEE")}
         </Text>
         <Text style={[styles.dateNumber, isSel && styles.selectedDateText]}>
-          {format(item, "d")}
+          {format(item.date, "d")}
         </Text>
       </TouchableOpacity>
     );
@@ -372,7 +394,7 @@ export default function SlotListScreen({ route, navigation }) {
                 ? "Booked ✓"
                 : isFull
                 ? "Full"
-                : `${spotsLeft} spot${spotsLeft > 1 ? "s" : ""}`}
+                : `${spotsLeft} spot${spotsLeft > 1 ? "s" : ""} left`}
             </Text>
           </View>
         </View>
@@ -470,7 +492,7 @@ export default function SlotListScreen({ route, navigation }) {
               <FlatList
                 data={dateOptions}
                 renderItem={renderDateOption}
-                keyExtractor={(d) => d.toISOString()}
+                keyExtractor={(d) => d.key}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.dateList}

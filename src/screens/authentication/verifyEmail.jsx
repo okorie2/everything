@@ -28,7 +28,7 @@ const EmailVerificationScreen = ({ navigation }) => {
     const checkVerification = setInterval(() => {
       if (currentUser.emailVerified) {
         clearInterval(checkVerification);
-        // navigation.replace("Home");
+        navigation.replace("Home");
       }
     }, 3000);
 

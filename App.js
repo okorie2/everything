@@ -205,9 +205,10 @@ const RootNavigator = () => {
   const auth = getAuth();
 
   React.useEffect(() => {
+    // if (!currentUser) return;
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.emailVerified) {
+      if (user) {
         setCurrentUser(user);
       } else {
         setCurrentUser(null);
@@ -232,12 +233,3 @@ export default function App() {
     </>
   );
 }
-
-// const styles = StyleSheet.create({
-//   loadingContainer: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     backgroundColor: '#fff'
-//   }
-// });

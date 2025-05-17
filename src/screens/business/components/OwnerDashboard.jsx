@@ -9,8 +9,6 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Image,
-  Dimensions,
 } from "react-native";
 import {
   collection,
@@ -23,18 +21,15 @@ import {
   serverTimestamp,
   orderBy,
   limit,
-  Timestamp,
 } from "firebase/firestore";
 import { db } from "../../../../backend/firebase"; // Adjust the import path as necessary
 import DropDownPicker from "react-native-dropdown-picker";
-import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import ManageEmployees from "./ManageEmployees";
 import PayrollTab from "./PayrollTab";
 import SnapshotCards from "./SnapshotCards"; // Adjust the import path as necessary
 import DateTimePicker from "@react-native-community/datetimepicker";
-
-const windowWidth = Dimensions.get("window").width;
 
 const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [taskForm, setTaskForm] = useState({
@@ -251,37 +246,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     }
   };
 
-  // const toggleBusinessStatus = async () => {
-  //   const newStatus = status === "open" ? "closed" : "open";
-  //   setLoading(true);
-  //   try {
-  //     const businessRef = doc(db, "businesses", business.business_id);
-  //     await updateDoc(businessRef, { status: newStatus });
-
-  //     // Log this activity
-  //     const activityRef = collection(
-  //       db,
-  //       "businesses",
-  //       business.business_id,
-  //       "activity"
-  //     );
-  //     await addDoc(activityRef, {
-  //       type: "status_change",
-  //       message: `Business status changed to ${newStatus}`,
-  //       timestamp: serverTimestamp(),
-  //     });
-
-  //     setStatus(newStatus);
-  //     Alert.alert("Status Updated", `Business is now marked as ${newStatus}`);
-  //     setRefreshing(true);
-  //   } catch (err) {
-  //     console.error("Failed to update status:", err);
-  //     Alert.alert("Error", "Failed to update business status");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     setLoading(true);
     try {
@@ -421,22 +385,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     </View>
   );
 
-  const renderActivityItem = ({ item }) => (
-    <View style={styles.activityItem}>
-      <View style={styles.activityIconContainer}>
-        {item.type === "status" ? (
-          <MaterialIcons name="storefront" size={20} color="#1a2a6c" />
-        ) : (
-          <MaterialIcons name="assignment" size={20} color="#1a2a6c" />
-        )}
-      </View>
-      <View style={styles.activityContent}>
-        <Text style={styles.activityMessage}>{item.message}</Text>
-        <Text style={styles.activityTime}>{item.timestamp}</Text>
-      </View>
-    </View>
-  );
-
   if (loading && !filteredTasks.length) {
     return (
       <View style={styles.loadingContainer}>
@@ -461,19 +409,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
             <Text style={styles.header}>Welcome Back!</Text>
             <Text style={styles.subHeader}>{business.name}</Text>
           </View>
-          {/* <View style={styles.statusIndicator}>
-            <Text style={styles.statusLabel}>
-              {status === "open" ? "🟢 Open" : "🔴 Closed"}
-            </Text>
-            <TouchableOpacity
-              style={styles.statusToggleButton}
-              onPress={toggleBusinessStatus}
-            >
-              <Text style={styles.statusToggleText}>
-                {status === "open" ? "Close" : "Open"}
-              </Text>
-            </TouchableOpacity>
-          </View> */}
         </View>
       </LinearGradient>
 
@@ -481,20 +416,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
         {activeTab === "overview" && (
           <>
             <SnapshotCards business={business} />
-
-            {/* <View style={styles.sectionHeader}>
-              <MaterialIcons name="timeline" size={24} color="#1a2a6c" />
-              <Text style={styles.sectionTitle}>Recent Activity</Text>
-            </View>
-
-            <View style={styles.activityContainer}>
-              <FlatList
-                data={recentActivity}
-                renderItem={renderActivityItem}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-              />
-            </View> */}
 
             <View style={styles.sectionHeader}>
               <MaterialIcons name="add-task" size={24} color="#1a2a6c" />

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import DropDownPicker from "react-native-dropdown-picker";
 import { getAuth } from "firebase/auth";
@@ -24,6 +25,8 @@ import {
 import { db } from "../../../backend/firebase";
 import Toast from "react-native-root-toast";
 import { Ionicons } from "@expo/vector-icons"; // Make sure to install expo/vector-icons
+import { getBusinessCategories } from "../../util/getBusinessCategories";
+import CustomDropdown from "./components/Dropdown";
 
 const RegisterBusinessScreen = ({ navigation }) => {
   const [form, setForm] = useState({
@@ -35,6 +38,7 @@ const RegisterBusinessScreen = ({ navigation }) => {
     contactPhone: "",
   });
 
+  const [categories, setCategories] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
@@ -47,6 +51,22 @@ const RegisterBusinessScreen = ({ navigation }) => {
     // Clear error when user starts typing
     if (errors[key]) {
       setErrors((prev) => ({ ...prev, [key]: null }));
+    }
+  };
+
+  const handleCategoryChange = (item) => {
+    console.log("Selected category:", item);
+    setForm({
+      ...form,
+      category: item,
+    });
+
+    // Clear error when selecting
+    if (errors.category) {
+      setErrors({
+        ...errors,
+        category: null,
+      });
     }
   };
 
@@ -78,6 +98,14 @@ const RegisterBusinessScreen = ({ navigation }) => {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      const cat = await getBusinessCategories();
+      setCategories(cat);
+    }
+    fetchCategories();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -123,7 +151,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
     setIsSubmitting(true);
 
     try {
-      /* ---------- THE RECORD THAT WILL BE SAVED ---------- */
       const businessData = {
         ...form,
         owner_id: user.uid,
@@ -136,7 +163,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
         created_at: serverTimestamp(),
       };
 
-      // Save the document
       const docRef = await addDoc(collection(db, "businesses"), businessData);
 
       // Back-write the auto-ID for convenience
@@ -146,12 +172,17 @@ const RegisterBusinessScreen = ({ navigation }) => {
         { merge: true }
       );
 
-      Toast.show("Business registered successfully!", {
-        duration: Toast.durations.SHORT,
-        position: Toast.positions.BOTTOM,
-        backgroundColor: "#1a2a6c",
-        textColor: "#fff",
-      });
+      Alert.alert(
+        "Success",
+        "Business registered and awaiting admin approval!",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.goBack(),
+          },
+        ],
+        { cancelable: false }
+      );
 
       navigation.goBack();
     } catch (err) {
@@ -166,7 +197,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
       setIsSubmitting(false);
     }
   };
-
   const renderInputField = (
     placeholder,
     key,
@@ -246,12 +276,16 @@ const RegisterBusinessScreen = ({ navigation }) => {
                 "default",
                 "location-outline"
               )}
-              {renderInputField(
-                "Category",
-                "category",
-                "default",
-                "layers-outline"
-              )}
+              <CustomDropdown
+                placeholder="Select Category"
+                options={categories}
+                value={form.category}
+                onChange={handleCategoryChange}
+                iconName="list-outline"
+                error={errors.category}
+                fieldKey="category"
+                setFocusedField={setFocusedField}
+              />
               {renderInputField(
                 "Business Description",
                 "description",

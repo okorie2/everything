@@ -19,8 +19,8 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "../../../backend/firebase";
-import { Ionicons } from "@expo/vector-icons";
 import { getAuth } from "firebase/auth";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   CATEGORY_COLORS,
@@ -229,6 +229,14 @@ const BusinessListScreen = ({ navigation, route }) => {
     "All",
     ...Array.from(new Set(businesses.map((b) => b.category))),
   ];
+  // Move "Food and Confectionery" to the end of the categories list
+  const sortedCategories = categories.filter(
+    (c) => c !== "Food and Confectionery"
+  );
+  if (categories.includes("Food and Confectionery")) {
+    sortedCategories.push("Food and Confectionery");
+  }
+  console.log("Categories:", categories);
 
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
@@ -288,7 +296,7 @@ const BusinessListScreen = ({ navigation, route }) => {
       <BusinessCategoryFilter
         COLORS={COLORS}
         activeFilter={activeFilter}
-        categories={categories}
+        categories={sortedCategories}
         getCategoryIcon={(category) =>
           CATEGORY_ICONS[category] || CATEGORY_ICONS.default
         }

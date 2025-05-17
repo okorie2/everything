@@ -14,20 +14,28 @@ import {
 import { Calendar } from "react-native-big-calendar";
 import { db, auth } from "../../../backend/firebase";
 import { useCalendarData } from "../../hooks/useCalendarData";
+import moment from "moment";
 
 // Date formatting utility
+
 const formatDate = (date) => {
-  const options = { weekday: "long", month: "long", day: "numeric" };
-  return date.toLocaleDateString("en-US", options);
+  try {
+    return moment(date).format("dddd, MMMM D"); // e.g. "Friday, May 16"
+  } catch (error) {
+    console.error("Error formatting date:", date, error);
+    return String(date);
+  }
 };
 
 // Time formatting utility
-const formatTime = (date) =>
-  date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+const formatTime = (date) => {
+  try {
+    return moment(date).format("hh:mm A"); // e.g. "11:00 PM"
+  } catch (error) {
+    console.error("Error formatting time:", date, error);
+    return String(date); // Fallback
+  }
+};
 
 export default function CalendarScreen({ navigation }) {
   const uid = auth.currentUser.uid;
@@ -42,6 +50,7 @@ export default function CalendarScreen({ navigation }) {
 
   // On mount
   useEffect(() => {
+    console.log("CalendarScreen mounted");
     loadData();
   }, []);
 
@@ -71,60 +80,62 @@ export default function CalendarScreen({ navigation }) {
   const handleEventPress = (event) => {
     const isOwner = event.clinicianId === uid;
 
-    // Format date function
-    const formatDate = (date) => {
-      return date.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    };
+    console.log("Event pressed:", event);
 
-    if (event.type === "appointment") {
-      const reasonText =
-        event.reason ||
-        event.description ||
-        event.fullData?.reason ||
-        event.fullData?.description ||
-        "No details provided";
-
-      const message = [
-        `Date: ${formatDate(event.start)}`,
-        `Time: ${formatTime(event.start)} – ${formatTime(event.end)}`,
-        `Place: ${event.businessName}`,
-        `Reason: ${reasonText}`,
-      ].join("\n");
-
-      Alert.alert(isOwner ? "Client Appointment" : "My Appointment", message, [
-        { text: "Close", style: "cancel" },
-        ...(isOwner
-          ? [
-              {
-                text: "Cancel Appointment",
-                style: "destructive",
-                onPress: async () => {
-                  try {
-                    await deleteDoc(doc(db, event.docPath));
-                    Alert.alert("Cancelled", "Appointment has been cancelled.");
-                    loadData();
-                  } catch (e) {
-                    Alert.alert("Error", "Failed to cancel appointment.");
-                  }
-                },
-              },
-            ]
-          : []),
-      ]);
-    } else {
-      // For non-appointment events (slots)
-      Alert.alert(
-        isOwner ? "Clinic Slot" : "My Slot",
-        `Date: ${formatDate(event.start)}\nTime: ${formatTime(
-          event.start
-        )} – ${formatTime(event.end)}\nClinic: ${event.clinicName}`,
-        [{ text: "Close", style: "cancel" }]
-      );
+    try {
+      if (event.type === "appointment") {
+        const reasonText =
+          event.reason ||
+          event.description ||
+          event.fullData?.reason ||
+          event.fullData?.description ||
+          "No details provided";
+        const message = [
+          `Date: ${formatDate(event.start)}`,
+          `Time: ${formatTime(event.start)} – ${formatTime(event.end)}`,
+          `Place: ${event.businessName}`,
+          `Reason: ${reasonText}`,
+        ].join("\n");
+        Alert.alert(
+          isOwner ? "Client Appointment" : "My Appointment",
+          message,
+          [
+            { text: "Close", style: "cancel" },
+            ...(isOwner
+              ? [
+                  {
+                    text: "Cancel Appointment",
+                    style: "destructive",
+                    onPress: async () => {
+                      try {
+                        await deleteDoc(doc(db, event.docPath));
+                        Alert.alert(
+                          "Cancelled",
+                          "Appointment has been cancelled."
+                        );
+                        loadData();
+                      } catch (e) {
+                        Alert.alert("Error", "Failed to cancel appointment.");
+                      }
+                    },
+                  },
+                ]
+              : []),
+          ]
+        );
+      } else {
+        // For non-appointment events (slots)
+        Alert.alert(
+          isOwner ? "Clinic Slot" : "My Slot",
+          `Date: ${formatDate(event.start)}\nTime: ${formatTime(
+            event.start
+          )} – ${formatTime(event.end)}\nClinic: ${event.clinicName}`,
+          [{ text: "Close", style: "cancel" }]
+        );
+      }
+    } catch (error) {
+      console.error("Error handling event press:", error);
+      Alert.alert("Error", "An error occurred while processing the event.");
     }
   };
   const renderEventCell = (evt) => (

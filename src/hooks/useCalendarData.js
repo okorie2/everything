@@ -317,40 +317,38 @@ async function fetchUserAppointments(db, uid, today) {
   try {
     let appointmentEvents = [];
 
-    // Approach 1: Try to use a simple query first that doesn't require composite indexes
     try {
       // First query: Get all appointments for this user as patient
       const userAppointmentsSnap = await getDocs(
         query(collection(db, "appointments"), where("userId", "==", uid))
       );
-
       // Process user appointments, filtering by date in memory
       userAppointmentsSnap.forEach((docSnap) => {
         const a = docSnap.data();
 
         // Only include appointments that are today or later
-        if (a.start && a.start.toDate() >= today) {
-          appointmentEvents.push({
-            id: `appt-${docSnap.id}`,
-            title: "My Appointment",
-            start: a.start.toDate(),
-            end: a.end.toDate(),
-            color: "#16A34A",
-            clinicianId: a.clinicianId || "",
-            userId: a.userId || "",
-            docPath: docSnap.ref.path,
-            type: "appointment",
-            // Additional details for the appointment
-            businessName: a.businessName || "Unknown Business",
-            reason: a.reason || "",
-            status: a.status || "scheduled",
-            clinicName: a.clinicName || "Unknown Clinic",
-            patientName: a.patientName || "",
-            clinicianName: a.clinicianName || "",
-            // Include full appointment data for access to any field
-            fullData: a,
-          });
-        }
+        appointmentEvents.push({
+          id: `appt-${docSnap.id}`,
+          title: "My Appointment",
+          start: a.start.toDate(),
+          end: a.end.toDate(),
+          color: "#16A34A",
+          clinicianId: a.clinicianId || "",
+          userId: a.userId || "",
+          docPath: docSnap.ref.path,
+          type: "appointment",
+          // Additional details for the appointment
+          businessName: a.businessName || "Unknown Business",
+          reason: a.reason || "",
+          status: a.status || "scheduled",
+          clinicName: a.clinicName || "Unknown Clinic",
+          patientName: a.patientName || "",
+          clinicianName: a.clinicianName || "",
+          // Include full appointment data for access to any field
+          fullData: a,
+        });
+        // if (a.start && a.start.toDate() >= today) {
+        // }
       });
     } catch (userApptError) {
       console.error("Error fetching user's appointments:", userApptError);

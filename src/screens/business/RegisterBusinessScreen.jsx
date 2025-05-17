@@ -55,7 +55,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
   };
 
   const handleCategoryChange = (item) => {
-    console.log("Selected category:", item);
     setForm({
       ...form,
       category: item,
@@ -82,7 +81,6 @@ const RegisterBusinessScreen = ({ navigation }) => {
           </Text>
         ),
       }));
-      console.log("Fetched users:", userOptions);
       setEmployees(userOptions);
     } catch (error) {
       console.error("Failed to fetch users:", error);

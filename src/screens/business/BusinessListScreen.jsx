@@ -236,7 +236,6 @@ const BusinessListScreen = ({ navigation, route }) => {
   if (categories.includes("Food and Confectionery")) {
     sortedCategories.push("Food and Confectionery");
   }
-  console.log("Categories:", categories);
 
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
@@ -254,7 +253,17 @@ const BusinessListScreen = ({ navigation, route }) => {
         headerOpacity={headerOpacity}
       />
 
-      <View style={{ height:150 }} />
+      <View style={{ height: 80 }} />
+
+      <BusinessCategoryFilter
+        COLORS={COLORS}
+        activeFilter={activeFilter}
+        categories={sortedCategories}
+        getCategoryIcon={(category) =>
+          CATEGORY_ICONS[category] || CATEGORY_ICONS.default
+        }
+        handleFilterChange={handleFilterChange}
+      />
 
       {isAdmin && (
         <View style={styles.tabToggleContainer}>
@@ -292,16 +301,6 @@ const BusinessListScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       )}
-
-      <BusinessCategoryFilter
-        COLORS={COLORS}
-        activeFilter={activeFilter}
-        categories={sortedCategories}
-        getCategoryIcon={(category) =>
-          CATEGORY_ICONS[category] || CATEGORY_ICONS.default
-        }
-        handleFilterChange={handleFilterChange}
-      />
 
       <Animated.FlatList
         data={filtered}

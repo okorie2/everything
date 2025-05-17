@@ -14,7 +14,13 @@ import { getAuth } from "firebase/auth";
 import OwnerDashboard from "./components/OwnerDashboard";
 import EmployeeDashboard from "./components/EmployeeDashboard";
 import VisitorView from "./components/VisitorView";
-import { collection, addDoc, Timestamp, onSnapshot, query } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  Timestamp,
+  onSnapshot,
+  query,
+} from "firebase/firestore";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase"; // Adjust the import path as needed
 
@@ -40,44 +46,39 @@ const BusinessDetailScreen = ({ route, navigation }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [business, setBusiness] = useState(routeBusiness);
 
-    const setupRealtimeListener = useCallback(() => {
-      try {
-        if (!auth.currentUser) return () => {}; // no-op if user is not signed in
+  const setupRealtimeListener = useCallback(() => {
+    try {
+      if (!auth.currentUser) return () => {}; // no-op if user is not signed in
 
-        const ref = doc(db, "businesses", routeBusiness.docId);
-        const q = query(
-          ref
-        );
-  
-        return onSnapshot(
-          q,
-          (snap) => {
-            if (snap.exists()) {
-              const data = snap.data();
-              console.log("Realtime business data:", data);
-              setBusiness(data);
-            }
-            setLoading(false);
-          },
-          (err) => {
-            console.error("Realtime slots error:", err);
-            setLoading(false);
-  
+      const ref = doc(db, "businesses", routeBusiness.docId);
+      const q = query(ref);
+
+      return onSnapshot(
+        q,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            setBusiness(data);
           }
-        );
-      } catch (error) {
-        console.error("Error setting up realtime listener:", error);
-      }
-    }, []);
-
-    useEffect(() => {
-      const unsubscribe = setupRealtimeListener();
-      return () => {
-        if (unsubscribe) {
-          unsubscribe();
+          setLoading(false);
+        },
+        (err) => {
+          setLoading(false);
         }
-      };
-    }, [setupRealtimeListener]);
+      );
+    } catch (error) {
+      console.error("Error setting up realtime listener:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = setupRealtimeListener();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [setupRealtimeListener]);
 
   useEffect(() => {
     // Set up the header title
@@ -119,7 +120,6 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         const admin = snap.data()?.isAdmin === true;
         setIsAdmin(admin);
       } else {
-        console.log("No user document found");
       }
     };
 

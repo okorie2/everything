@@ -2,7 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import CalculatorScreen from "./src/screens/calculatorScreen";
-import AccountScreen from "./src/screens/accountScreen";
+import AccountScreen from "./src/screens/profile/accountScreen";
 import LoginScreen from "./src/screens/authentication/loginScreen";
 import LandingPage from "./src/screens/landingScreen";
 import HomeScreen from "./src/screens/dashboard/dashboardScreen";

@@ -40,26 +40,26 @@ export default function ManageEmployees({ business }) {
   useEffect(() => {
     (async () => {
       /* user list */
-      const snap = await getDocs(collection(db, "user"));
-      setUserOptions(
-        snap.docs.map((d) => ({
-          label: `${d.data().first_name} ${d.data().last_name}`,
-          value: d.id,
-          icon: () => <Ionicons name="person-outline" size={18} color="#888" />,
-        }))
-      );
-
-      /* roles */
-      const rolesSnap = await getDocs(
-        collection(db, "businesses", business.business_id, "roles")
-      );
-      const map = {};
-      rolesSnap.docs.forEach((r) => {
-        const { role = "staff", hourly_rate = 0 } = r.data();
-        map[r.id] = role;
-        map[r.id + "_rate"] = hourly_rate.toString();
-      });
-      setRoleMap(map);
+      // const snap = await getDocs(collection(db, "user"));
+      // console.log("user list", snap.docs);
+      // setUserOptions(
+      //   snap.docs.map((d) => ({
+      //     label: `${d.data().first_name} ${d.data().last_name}`,
+      //     value: d.id,
+      //     icon: () => <Ionicons name="person-outline" size={18} color="#888" />,
+      //   }))
+      // );
+      // /* roles */
+      // const rolesSnap = await getDocs(
+      //   collection(db, "businesses", business.business_id, "roles")
+      // );
+      // const map = {};
+      // rolesSnap.docs.forEach((r) => {
+      //   const { role = "staff", hourly_rate = 0 } = r.data();
+      //   map[r.id] = role;
+      //   map[r.id + "_rate"] = hourly_rate.toString();
+      // });
+      // setRoleMap(map);
     })();
   }, [business.business_id]);
 

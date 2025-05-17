@@ -61,6 +61,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
   // Fetch employees from user collection
   useEffect(() => {
+    console.log(business, "business");
     const fetchEmployees = async () => {
       try {
         const employeeDocs = await Promise.all(
@@ -68,7 +69,10 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
             const userDoc = await getDocs(
               query(collection(db, "user"), where("__name__", "==", uid))
             );
-            const data = userDoc.docs[0]?.data();
+
+            const docSnap = userDoc.docs[0];
+            if (!docSnap) return {}; // Failsafe: skip if user not found
+            const data = docSnap.data();
             return {
               label: `${data.first_name} ${data.last_name}`,
               value: uid,
@@ -519,7 +523,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
           </>
         )}
 
-        {activeTab === "manage" && <ManageEmployees business={business} />}
+        {/* {activeTab === "manage" && <ManageEmployees business={business} />} */}
 
         {activeTab === "payroll" && (
           <PayrollTab

@@ -79,7 +79,6 @@ export default function CalendarScreen({ navigation }) {
 
   // On mount
   useEffect(() => {
-    console.log("CalendarScreen mounted");
     loadData();
   }, []);
 

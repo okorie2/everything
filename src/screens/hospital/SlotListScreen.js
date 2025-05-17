@@ -440,7 +440,6 @@ export default function SlotListScreen({ route, navigation }) {
       </SafeAreaView>
     );
   }
-  console.log(clinicImage, clinicId, "clinicImage");
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />

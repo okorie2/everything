@@ -131,7 +131,6 @@ const ChatRoomScreen = () => {
     try {
       const userDoc = await getDoc(userDocRef);
       const data = userDoc.data();
-      console.log("sending", data.first_name);
 
       await addDoc(collection(db, "global_chat_messages"), {
         text: trimmedInput,

@@ -44,7 +44,6 @@ const CustomDropdown = ({
   };
 
   const onItemSelect = (item) => {
-    console.log("Selected item:", item);
     onChange(item);
     setIsOpen(false);
     setFocusedField(null);

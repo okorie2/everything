@@ -35,7 +35,7 @@ const STAFF_MEMBERS = [
   },
   {
     id: "staff3",
-    name: "Dr. Emily Rodriguez",
+    name: "Dr. Emily Rodriguezy",
     role: "Pediatrician",
     avatar: "https://randomuser.me/api/portraits/women/68.jpg",
     specialization: "Child Health",

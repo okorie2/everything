@@ -10,14 +10,16 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
+  Modal,
+  FlatList,
 } from "react-native";
 import { Calendar } from "react-native-big-calendar";
 import { db, auth } from "../../../backend/firebase";
 import { useCalendarData } from "../../hooks/useCalendarData";
 import moment from "moment";
+import { deleteDoc, doc } from "firebase/firestore";
 
 // Date formatting utility
-
 const formatDate = (date) => {
   try {
     return moment(date).format("dddd, MMMM D"); // e.g. "Friday, May 16"
@@ -42,11 +44,38 @@ export default function CalendarScreen({ navigation }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState("month"); // 'day', 'week', 'month'
+  const [selectedDayEvents, setSelectedDayEvents] = useState([]);
+  const [showAllEventsModal, setShowAllEventsModal] = useState(false);
 
-  const { events, isLoading, error, loadData, refresh } = useCalendarData(
-    db,
-    uid
-  );
+  const {
+    events: rawEvents,
+    isLoading,
+    error,
+    loadData,
+    refresh,
+  } = useCalendarData(db, uid);
+
+  // Ensure events have proper Date objects for start and end
+  const events = useMemo(() => {
+    return rawEvents.map((event) => ({
+      ...event,
+      // Ensure start and end are proper Date objects
+      start: event.start instanceof Date ? event.start : new Date(event.start),
+      end: event.end instanceof Date ? event.end : new Date(event.end),
+    }));
+  }, [rawEvents]);
+
+  // Debug events
+  useEffect(() => {
+    if (events.length > 0) {
+      console.log("First event:", {
+        title: events[0].title,
+        start: events[0].start.toString(),
+        end: events[0].end.toString(),
+        isDate: events[0].start instanceof Date,
+      });
+    }
+  }, [events]);
 
   // On mount
   useEffect(() => {
@@ -138,18 +167,48 @@ export default function CalendarScreen({ navigation }) {
       Alert.alert("Error", "An error occurred while processing the event.");
     }
   };
+
+  // Handle cell press to show all events for a day
+  const handleCellPress = (date) => {
+    // Find all events for this day
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const dayEvents = events.filter((event) => {
+      const eventStart = new Date(event.start);
+      return eventStart >= dayStart && eventStart <= dayEnd;
+    });
+
+    if (dayEvents.length > 0) {
+      setSelectedDayEvents(dayEvents);
+      setShowAllEventsModal(true);
+    }
+  };
+
+  // Custom event renderer for all view modes
   const renderEventCell = (evt) => (
     <TouchableOpacity
-      style={[styles.eventCell, { backgroundColor: evt.color }]}
+      style={[
+        styles.eventCell,
+        { backgroundColor: evt.color },
+        // Add specific styles for day/week view to ensure visibility
+        (viewMode === "day" || viewMode === "week") && styles.dayWeekEventCell,
+      ]}
       onPress={() => handleEventPress(evt)}
     >
       <Text style={styles.eventTitle} numberOfLines={1}>
         {evt.title}
       </Text>
       <Text style={styles.eventTime}>{formatTime(evt.start)}</Text>
-      <Text style={styles.eventClinic} numberOfLines={1}>
-        {evt.businessName}
-      </Text>
+      {/* Only show clinic name if there's enough space */}
+      {(viewMode === "month" || evt.end - evt.start > 3600000) && (
+        <Text style={styles.eventClinic} numberOfLines={1}>
+          {evt.businessName}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -254,12 +313,40 @@ export default function CalendarScreen({ navigation }) {
           showTime
           renderEvent={renderEventCell}
           onPressEvent={handleEventPress}
+          onPressCell={handleCellPress}
           onSwipeHorizontal={(dir) => {
             if (dir === "LEFT") navigateNext();
             if (dir === "RIGHT") navigatePrevious();
           }}
           weekStartsOn={1}
           swipeEnabled
+          // Fix for issue #1: Make events visible in all views
+          eventCellStyle={(event) => ({
+            backgroundColor: event.color,
+            borderRadius: 4,
+            padding: 4,
+            opacity: 1, // Ensure full opacity
+            minHeight: 25, // Minimum height to ensure visibility
+          })}
+          // Fix for issue #2: Allow more events to be visible
+          maxVisibleEventCount={3} // Show more events before "more" indicator
+          // Enable scrolling in month view for days with many events
+          scrollOffsetMinutes={0}
+          // Add this to ensure events are properly displayed
+          overlapOffset={10}
+          // Make sure events are visible in day/week view
+          dayHeaderHighlightColor="#EFF6FF"
+          eventMinHeightForMonthView={25} // Increased minimum height for month view events
+          // Increase cell height in month view
+          calendarCellStyle={{
+            minHeight: viewMode === "month" ? 80 : undefined,
+          }}
+          // Ensure proper date handling
+          hourFormat="h A"
+          // Increase the height of the month view
+          monthViewStyle={{
+            minHeight: 650,
+          }}
         />
 
         {/* No events */}
@@ -277,6 +364,56 @@ export default function CalendarScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal to show all events for a day */}
+      <Modal
+        visible={showAllEventsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAllEventsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                All Events ({selectedDayEvents.length})
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowAllEventsModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={selectedDayEvents}
+              keyExtractor={(item, index) => `event-${index}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalEventItem,
+                    { borderLeftColor: item.color },
+                  ]}
+                  onPress={() => {
+                    setShowAllEventsModal(false);
+                    handleEventPress(item);
+                  }}
+                >
+                  <Text style={styles.modalEventTime}>
+                    {formatTime(item.start)} - {formatTime(item.end)}
+                  </Text>
+                  <Text style={styles.modalEventTitle}>{item.title}</Text>
+                  <Text style={styles.modalEventLocation}>
+                    {item.businessName || item.clinicName || ""}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.modalEventList}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -377,8 +514,29 @@ const styles = StyleSheet.create({
   },
   legendText: { fontSize: 12, color: "#64748B" },
   calendarContainer: { flex: 1 },
-  eventCell: { borderRadius: 4, padding: 4, justifyContent: "space-between" },
-  eventTitle: { color: "#fff", fontWeight: "600", fontSize: 12 },
+  eventCell: {
+    borderRadius: 4,
+    padding: 4,
+    justifyContent: "space-between",
+    minHeight: 25, // Ensure minimum height for visibility
+    marginBottom: 2, // Add space between events
+  },
+  // New style for day/week view events
+  dayWeekEventCell: {
+    minHeight: 30,
+    marginVertical: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: "rgba(255,255,255,0.5)",
+  },
+  eventTitle: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 12,
+    // Make sure text is visible
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
   eventTime: { color: "#fff", fontSize: 10, opacity: 0.9 },
   eventClinic: {
     color: "#fff",
@@ -400,4 +558,66 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   scheduleButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "90%",
+    maxHeight: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1E293B",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: "#64748B",
+  },
+  modalEventList: {
+    padding: 16,
+  },
+  modalEventItem: {
+    padding: 12,
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    marginBottom: 8,
+  },
+  modalEventTime: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+    marginBottom: 4,
+  },
+  modalEventTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1E293B",
+    marginBottom: 4,
+  },
+  modalEventLocation: {
+    fontSize: 14,
+    color: "#64748B",
+    fontStyle: "italic",
+  },
 });

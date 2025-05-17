@@ -28,6 +28,8 @@ import {
   Timestamp,
   doc,
   addDoc,
+  getDocs,
+  deleteDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../../backend/firebase";
 import {
@@ -155,7 +157,6 @@ export default function SlotListScreen({ route, navigation }) {
       // Create slot end time (1 hour later)
       const slotEnd = new Date(currentDate);
       slotEnd.setHours(hour + slotDurationHr);
-      console.log(appointments, "appointments");
 
       // Count appointments that fall within this time slot
       const appointmentsInSlot = appointments.filter((appointment) => {
@@ -196,16 +197,6 @@ export default function SlotListScreen({ route, navigation }) {
           isBooked: appointmentsInSlot.some((a) => a.userId === userId),
         });
       }
-      // timeSlots.push({
-      //   time: formattedTime,
-      //   date: new Date(slotStart),
-      //   remainingCapacity,
-      //   available: remainingCapacity > 0,
-      //   slotStart,
-      //   slotEnd,
-      //   bookedCount: appointmentsInSlot.length,
-      //   isBooked: appointmentsInSlot.some((a) => a.userId === userId),
-      // });
 
       // Move to next slot
       currentDate.setHours(hour + 1);
@@ -236,6 +227,7 @@ export default function SlotListScreen({ route, navigation }) {
       percent: total ? Math.round((available / total) * 100) : 0,
     };
   }, [filteredSlots]);
+  console.log(filteredSlots, "filteredSlots");
 
   // Reserve
   const bookSlot = async (slot) => {
@@ -289,25 +281,24 @@ export default function SlotListScreen({ route, navigation }) {
     setBookingInProgress(true);
 
     try {
-      const snap = await getDoc(slot.ref);
-      const data = snap.data();
-      if (!(data.booked ?? []).includes(userId)) {
-        throw new Error("You’re not booked here");
-      }
-      await updateDoc(slot.ref, {
-        booked: arrayRemove(userId),
-        lastUpdated: Timestamp.now(),
-      });
-      setSlots((prev) =>
-        prev.map((s) =>
-          s.id === slot.id
-            ? {
-                ...s,
-                booked: (s.booked ?? []).filter((u) => u !== userId),
-              }
-            : s
-        )
+      const q = query(
+        collection(db, "appointments"),
+        where("userId", "==", userId),
+        where("businessId", "==", HOSPITAL_ID),
+        where("start", "==", slot.slotStart),
+        where("end", "==", slot.slotEnd)
       );
+
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        throw new Error("No appointment found for this slot.");
+      }
+
+      // Delete all matching docs (likely just one)
+      const deletions = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+      await Promise.all(deletions);
+
       Alert.alert("Cancelled", "Your reservation has been cancelled.");
     } catch (e) {
       console.error(e);
@@ -503,7 +494,7 @@ export default function SlotListScreen({ route, navigation }) {
           </>
         }
         data={filteredSlots}
-        keyExtractor={(i) => i.id}
+        keyExtractor={(i) => i.time}
         renderItem={renderItem}
         ListEmptyComponent={ListEmpty}
         contentContainerStyle={styles.listContent}

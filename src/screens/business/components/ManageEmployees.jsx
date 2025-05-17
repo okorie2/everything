@@ -203,12 +203,12 @@ export default function ManageEmployees({ business }) {
             <Text style={s.rateLabel}>Hourly Rate</Text>
             <TouchableOpacity
               style={[s.rateInputContainer, isEditing && s.rateInputFocused]}
-              onPress={() => focusRateInput(uid)}
-              activeOpacity={0.7}
+              // onPress={() => focusRateInput(uid)}
+              activeOpacity={1}
             >
               <Text style={s.currencySymbol}>$</Text>
               <TextInput
-                ref={(ref) => (rateInputRefs.current[uid] = ref)}
+                // ref={(ref) => (rateInputRefs.current[uid] = ref)}
                 style={s.rateInput}
                 value={roleMap[uid + "_rate"] || ""}
                 onChangeText={(t) => handleRateChange(uid, t)}

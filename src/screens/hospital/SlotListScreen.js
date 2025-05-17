@@ -19,12 +19,8 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
   getDoc,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
   Timestamp,
   doc,
   addDoc,
@@ -42,11 +38,13 @@ import {
   differenceInMinutes,
 } from "date-fns";
 import { HOSPITAL_ID } from "../../constants/hospital";
+import AttendButton from "./AttendAppointmentButton";
 
 const fadeAnim = new Animated.Value(0);
 
 export default function SlotListScreen({ route, navigation }) {
   const { clinicId, clinicTitle, clinicImage } = route.params;
+  console.log("SlotListScreen", clinicId, clinicTitle, clinicImage);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -134,58 +132,54 @@ export default function SlotListScreen({ route, navigation }) {
 
   const slots = useMemo(() => {
     const slotStartHr = 9; // 9 AM
-    const slotEndHr = 17; // 5 PM
+    const slotEndHr = 24; // 9 PM
     const slotDurationHr = 1; // 1 hour
-    const maxCapacityPerSlot = 20; // Maximum appointments per slot
+    const maxCapacityPerSlot = 20;
 
-    // Create array to hold all slots
     const timeSlots = [];
-
     if (!selectedDate) return timeSlots;
 
-    // Clone the selected date to avoid modifying the original
     const currentDate = new Date(selectedDate);
-
-    // Set the date to start at the first slot time
     currentDate.setHours(slotStartHr, 0, 0, 0);
 
-    // Generate slots from start hour to end hour
-    for (let hour = slotStartHr; hour < slotEndHr; hour++) {
-      // Create slot start time
-      const slotStart = new Date(currentDate);
+    const now = new Date();
 
-      // Create slot end time (1 hour later)
-      const slotEnd = new Date(currentDate);
+    for (let hour = slotStartHr; hour < slotEndHr; hour++) {
+      const slotStart = new Date(currentDate);
+      slotStart.setHours(hour, 0, 0, 0);
+
+      const slotEnd = new Date(slotStart);
       slotEnd.setHours(hour + slotDurationHr);
 
-      // Count appointments that fall within this time slot
       const appointmentsInSlot = appointments.filter((appointment) => {
         const appointmentStart = appointment.start.toDate();
         const appointmentEnd = appointment.end.toDate();
 
-        // Check if appointment overlaps with the current slot
         return (
-          // Appointment starts during the slot
           (appointmentStart >= slotStart && appointmentStart < slotEnd) ||
-          // Appointment ends during the slot
           (appointmentEnd > slotStart && appointmentEnd <= slotEnd) ||
-          // Appointment spans the entire slot
           (appointmentStart <= slotStart && appointmentEnd >= slotEnd)
         );
       });
 
-      // Calculate remaining capacity
+      const isBooked = appointmentsInSlot.some((a) => a.userId === userId);
       const remainingCapacity = maxCapacityPerSlot - appointmentsInSlot.length;
 
-      // Format time for display (e.g., "9:00 AM")
       const formattedTime = slotStart.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
       });
+      const isCurrentHour =
+        now >= slotStart &&
+        now < slotEnd &&
+        slotStart.toDateString() === now.toDateString();
+      const isFutureSlot = slotStart > now;
 
-      // Add slot to array
-      if (slotStart > new Date()) {
+      // Only include:
+      // - Future slots
+      // - Current hour if user has it booked
+      if (isFutureSlot || (isCurrentHour && isBooked)) {
         timeSlots.push({
           time: formattedTime,
           date: new Date(slotStart),
@@ -194,41 +188,16 @@ export default function SlotListScreen({ route, navigation }) {
           slotStart,
           slotEnd,
           bookedCount: appointmentsInSlot.length,
-          isBooked: appointmentsInSlot.some((a) => a.userId === userId),
+          isBooked,
         });
       }
 
-      // Move to next slot
       currentDate.setHours(hour + 1);
     }
 
     return timeSlots;
   }, [appointments, selectedDate, userId]);
 
-  // Filter by time of day
-  const filteredSlots = useMemo(() => {
-    if (filterOption === "all") return slots;
-    return slots.filter((s) => {
-      const hr = s.date.getHours();
-      if (filterOption === "morning") return hr >= 6 && hr < 12;
-      if (filterOption === "afternoon") return hr >= 12 && hr < 17;
-      if (filterOption === "evening") return hr >= 17 && hr < 23;
-      return true;
-    });
-  }, [slots, filterOption]);
-
-  // Stats
-  const availabilityStats = useMemo(() => {
-    const total = filteredSlots.length;
-    const available = filteredSlots.filter((s) => s.available).length;
-    return {
-      total,
-      available,
-      percent: total ? Math.round((available / total) * 100) : 0,
-    };
-  }, [filteredSlots]);
-
-  // Reserve
   const bookSlot = async (slot) => {
     if (!userId) {
       return Alert.alert("Please log in", "You need to be signed in to book.", [
@@ -389,6 +358,16 @@ export default function SlotListScreen({ route, navigation }) {
           </View>
         </View>
 
+        <AttendButton
+          slotStart={item.slotStart}
+          slotEnd={item.slotEnd}
+          isBooked={item.isBooked}
+          onAttend={() =>
+            navigation.navigate("AppointmentSession", { item, clinicId })
+          }
+          style={styles}
+        />
+
         <TouchableOpacity
           style={[
             styles.btn,
@@ -455,22 +434,9 @@ export default function SlotListScreen({ route, navigation }) {
                 />
               )}
               <View style={styles.clinicInfo}>
-                <Text style={styles.clinicTitle}>{clinicTitle}</Text>
-                <View style={styles.statsRow}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
-                      {availabilityStats.available}
-                    </Text>
-                    <Text style={styles.statLabel}>Slots Available</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
-                      {availabilityStats.percent}%
-                    </Text>
-                    <Text style={styles.statLabel}>Availability</Text>
-                  </View>
-                </View>
+                <Text style={styles.clinicTitle}>
+                  {clinicId + " " + " Hospital"}
+                </Text>
               </View>
             </View>
 
@@ -491,7 +457,7 @@ export default function SlotListScreen({ route, navigation }) {
             {renderTimeFilter()}
           </>
         }
-        data={filteredSlots}
+        data={slots}
         keyExtractor={(i) => i.time}
         renderItem={renderItem}
         ListEmptyComponent={ListEmpty}
@@ -750,6 +716,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF8008",
     minWidth: 80,
     alignItems: "center",
+  },
+  btnAttend: {
+    backgroundColor: "green",
+    marginRight: 10,
   },
   btnFull: {
     backgroundColor: "#f1f5f9",

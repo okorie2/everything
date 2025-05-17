@@ -24,6 +24,7 @@ import ServiceNavigator from "./src/navigations/ServiceNavigator"; // adjust if 
 import CalendarScreen from "./src/screens/calendar/CalendarScreen";
 import QueueDetailScreen from "./src/screens/hospital/QueueDetailScreen";
 import ChatRoomScreen from "./src/screens/ChatRoomScreen"; // adjust if needed
+import AppointmentSessionScreen from "./src/screens/hospital/AppointmentSession";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -193,7 +194,10 @@ const AppNavigator = () => {
       <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
       <Stack.Screen name="CityServices" component={ServiceNavigator} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
-      <Stack.Screen name="QueueDetail" component={QueueDetailScreen} />
+      <Stack.Screen
+        name="AppointmentSession"
+        component={AppointmentSessionScreen}
+      />
     </Stack.Navigator>
   );
 };

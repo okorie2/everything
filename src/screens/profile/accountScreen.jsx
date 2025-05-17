@@ -94,8 +94,8 @@ const ProfileScreen = ({ navigation }) => {
 
       // Fetch jobs where user is an employee
       const employeeQuery = query(
-        collection(db, "employees"),
-        where("employee_id", "==", currentUser.uid)
+        collection(db, "businesses"),
+        where("employees", "array-contains", currentUser.uid)
       );
       const employeeSnapshot = await getDocs(employeeQuery);
 
@@ -103,6 +103,8 @@ const ProfileScreen = ({ navigation }) => {
       const employeeJobs = [];
       for (const empDoc of employeeSnapshot.docs) {
         const empData = empDoc.data();
+        console.log(empData, "Employee Jobs");
+
         if (empData.business_id) {
           const businessDoc = await getDoc(
             doc(db, "businesses", empData.business_id)
@@ -557,7 +559,7 @@ const ProfileScreen = ({ navigation }) => {
                   activeTab === "employee" && styles.activeFilterTabText,
                 ]}
               >
-                Employee
+                Jobs
               </Text>
               <View style={styles.badgeCount}>
                 <Text style={styles.badgeCountText}>{employeeJobs.length}</Text>

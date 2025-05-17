@@ -172,14 +172,7 @@ const RegisterBusinessScreen = ({ navigation }) => {
 
       Alert.alert(
         "Success",
-        "Business registered and awaiting admin approval!",
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.goBack(),
-          },
-        ],
-        { cancelable: false }
+        "Business registered and awaiting admin approval!"
       );
 
       navigation.goBack();

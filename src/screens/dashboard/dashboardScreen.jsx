@@ -49,7 +49,7 @@ export default function HomeScreen({ navigation }) {
       icon: "briefcase",
       screen: "RegisterBusiness",
     },
-    { title: "City Services", icon: "city", screen: "CityServices" },
+    { title: "Use City Services", icon: "city", screen: "CityServices" },
   ];
 
   const [categories, setCategories] = useState([]);

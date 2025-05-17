@@ -43,14 +43,11 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [taskFilter, setTaskFilter] = useState("all");
-  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState(business.status || "open");
   const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [employeeItems, setEmployeeItems] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -62,7 +59,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
   // Fetch employees from user collection
   useEffect(() => {
-    console.log(business, "business");
     const fetchEmployees = async () => {
       try {
         const employeeDocs = await Promise.all(
@@ -92,6 +88,8 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
     fetchEmployees();
   }, [business]);
+
+  console.log(employeeItems, "employeeItems");
 
   // Fetch all tasks
   useEffect(() => {
@@ -125,56 +123,8 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
       }
     };
 
-    const fetchRecentActivity = async () => {
-      try {
-        // This could be a combination of recent tasks, status changes, etc.
-        const activityRef = collection(
-          db,
-          "businesses",
-          business.business_id,
-          "activity"
-        );
-        const activityQuery = query(
-          activityRef,
-          orderBy("timestamp", "desc"),
-          limit(5)
-        );
-        const snapshot = await getDocs(activityQuery);
-        if (!snapshot.empty) {
-          setRecentActivity(
-            snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-              timestamp:
-                doc.data().timestamp?.toDate().toLocaleDateString() ||
-                "Unknown date",
-            }))
-          );
-        } else {
-          // If no activity log exists yet, create mock data
-          setRecentActivity([
-            {
-              id: "1",
-              type: "status",
-              message: "Business opened for the day",
-              timestamp: new Date().toLocaleDateString(),
-            },
-            {
-              id: "2",
-              type: "task",
-              message: 'Task "Welcome new employees" was completed',
-              timestamp: new Date().toLocaleDateString(),
-            },
-          ]);
-        }
-      } catch (error) {
-        console.error("Error fetching activity:", error);
-      }
-    };
-
     fetchTasks();
-    fetchRecentActivity();
-  }, [business, refreshing]);
+  }, [business, refreshing, employeeItems]);
 
   // Filter tasks when taskFilter changes
   useEffect(() => {
@@ -187,6 +137,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
   const getEmployeeName = (uid) => {
     const employee = employeeItems.find((emp) => emp.value === uid);
+    console.log(employeeItems, "employee");
     return employee ? employee.label : "Unknown Employee";
   };
 
@@ -364,7 +315,9 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
         {item.due_date && (
           <View style={styles.taskMetaItem}>
             <MaterialIcons name="event" size={14} color="#555" />
-            <Text style={styles.taskMeta}>Due: {moment(item.due_date.toDate()).format("DD/MM/YYYY")}</Text>
+            <Text style={styles.taskMeta}>
+              Due: {moment(item.due_date.toDate()).format("DD/MM/YYYY")}
+            </Text>
           </View>
         )}
       </View>

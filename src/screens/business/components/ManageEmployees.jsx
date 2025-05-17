@@ -41,7 +41,6 @@ export default function ManageEmployees({ business }) {
     (async () => {
       /* user list */
       const snap = await getDocs(collection(db, "user"));
-      console.log("user list", snap.docs);
       setUserOptions(
         snap.docs.map((d) => ({
           label: `${d.data().first_name} ${d.data().last_name}`,

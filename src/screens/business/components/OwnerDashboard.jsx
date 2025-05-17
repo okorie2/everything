@@ -30,6 +30,7 @@ import ManageEmployees from "./ManageEmployees";
 import PayrollTab from "./PayrollTab";
 import SnapshotCards from "./SnapshotCards"; // Adjust the import path as necessary
 import DateTimePicker from "@react-native-community/datetimepicker";
+import moment from "moment";
 
 const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [taskForm, setTaskForm] = useState({
@@ -190,7 +191,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   };
 
   const handleCreateTask = async () => {
-    const { title, description, priority, dueDate } = taskForm;
+    const { title, description, priority, due_date } = taskForm;
     if (!title || !description || selectedEmployees.length === 0) {
       Alert.alert("Error", "All task fields are required.");
       return;
@@ -211,7 +212,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
           description,
           assigned_to: uid,
           priority,
-          due_date: dueDate,
+          due_date: due_date,
           status: "pending",
           created_at: serverTimestamp(),
           completed_at: null,
@@ -238,7 +239,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
         title: "",
         description: "",
         priority: "medium",
-        dueDate: new Date().toISOString().split("T")[0],
+        due_date: new Date(),
       });
       setSelectedEmployees([]);
       setRefreshing(true);
@@ -363,7 +364,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
         {item.due_date && (
           <View style={styles.taskMetaItem}>
             <MaterialIcons name="event" size={14} color="#555" />
-            <Text style={styles.taskMeta}>Due: {item.due_date}</Text>
+            <Text style={styles.taskMeta}>Due: {moment(item.due_date.toDate()).format("DD/MM/YYYY")}</Text>
           </View>
         )}
       </View>
@@ -523,7 +524,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
           </>
         )}
 
-        {/* {activeTab === "manage" && <ManageEmployees business={business} />} */}
+        {activeTab === "manage" && <ManageEmployees business={business} />}
 
         {activeTab === "payroll" && (
           <PayrollTab

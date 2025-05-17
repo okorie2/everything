@@ -39,6 +39,7 @@ const COLORS = {
 
 const BusinessDetailScreen = ({ route, navigation }) => {
   const { business: routeBusiness } = route.params;
+  const business_id = routeBusiness?.docId ?? routeBusiness?.business_id ?? ""
   const [role, setRole] = useState(null); // "owner" | "employee" | "visitor"
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +51,8 @@ const BusinessDetailScreen = ({ route, navigation }) => {
     try {
       if (!auth.currentUser) return () => {}; // no-op if user is not signed in
 
-      const ref = doc(db, "businesses", routeBusiness.docId);
+      const ref = doc(db, "businesses", business_id);
+      if (!ref) return () => {}; // no-op if ref is not valid
       const q = query(ref);
 
       return onSnapshot(
@@ -132,7 +134,7 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         await addDoc(collection(db, "user_activity"), {
           userId: auth.currentUser.uid,
           type: "visit",
-          businessId: business.id,
+          businessId: business_id,
           timestamp: Timestamp.now(),
         });
       } catch (e) {

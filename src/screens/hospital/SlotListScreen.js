@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFA41B",
   },
   btnDisabled: {
-    opacity: 0.6,
+    opacity: 0.6, //
   },
   btnText: {
     color: "#ffffff",

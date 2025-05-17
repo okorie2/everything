@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,6 +21,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "gradleProperties": {
+        "org.gradle.jvmargs": "-Xmx2048m -Dfile.encoding=UTF-8",
+        "newArchEnabled": "false",
+        "android.disableAutomaticComponentCreation": "true"
       },
       "package": "com.bimafrontend.everything"
     },

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,76 @@ import { Ionicons } from "@expo/vector-icons";
 import DropDownPicker from "react-native-dropdown-picker";
 import Toast from "react-native-root-toast";
 import { db } from "../../../../backend/firebase"; // adjust if needed
+
+const EmployeeCard = ({
+  item,
+  roleMap,
+  s,
+  editingRate,
+  handleRateChange,
+  handleRateBlur,
+  removeEmployee,
+  saveRole,
+}) => {
+  const uid = item.value;
+  const role = roleMap[uid] || "staff";
+  const next = role === "manager" ? "staff" : "manager";
+  const isEditing = editingRate === uid;
+
+  return (
+    <View style={s.card}>
+      <View style={s.cardHeader}>
+        <View style={s.userInfo}>
+          <Ionicons name="person" size={20} color="#555" />
+          <Text style={s.userName}>{item.label}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[s.roleBtn, role === "manager" ? s.managerBtn : s.staffBtn]}
+          onPress={() => saveRole(uid, next)}
+        >
+          <Text style={s.roleBtnTxt}>{role}</Text>
+          <Ionicons
+            name={role === "manager" ? "chevron-down" : "chevron-up"}
+            size={14}
+            color="#fff"
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View style={s.cardBody}>
+        <View style={s.rateContainer}>
+          <Text style={s.rateLabel}>Hourly Rate</Text>
+          <TouchableOpacity
+            style={[s.rateInputContainer, isEditing && s.rateInputFocused]}
+            // onPress={() => focusRateInput(uid)}
+            activeOpacity={1}
+          >
+            <Text style={s.currencySymbol}>$</Text>
+            <TextInput
+              // ref={(ref) => (rateInputRefs.current[uid] = ref)}
+              style={s.rateInput}
+              value={roleMap[uid + "_rate"] || ""}
+              onChangeText={(t) => handleRateChange(uid, t)}
+              onBlur={() => handleRateBlur(uid)}
+              keyboardType="numeric"
+              placeholder="0.00"
+              selectTextOnFocus={true}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={s.removeBtn}
+          onPress={() => removeEmployee(uid)}
+        >
+          <Ionicons name="trash-outline" size={16} color="#888" />
+          <Text style={s.removeTxt}>Remove</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export default function ManageEmployees({ business }) {
   /* dropdown state */
@@ -161,75 +231,17 @@ export default function ManageEmployees({ business }) {
   };
 
   /* prepare data */
-  const current = userOptions.filter((u) =>
-    (business.employees || []).includes(u.value)
-  );
+  const current = useMemo(() => {
+    return userOptions.filter((u) =>
+      (business.employees || []).includes(u.value)
+    );
+  }, [userOptions, business.employees]);
 
   const selectedEmployeeItems = selectedEmployees
     .map((uid) => userOptions.find((u) => u.value === uid))
     .filter(Boolean);
 
   /* Employee card component */
-  const EmployeeCard = ({ item }) => {
-    const uid = item.value;
-    const role = roleMap[uid] || "staff";
-    const next = role === "manager" ? "staff" : "manager";
-    const isEditing = editingRate === uid;
-
-    return (
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <View style={s.userInfo}>
-            <Ionicons name="person" size={20} color="#555" />
-            <Text style={s.userName}>{item.label}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[s.roleBtn, role === "manager" ? s.managerBtn : s.staffBtn]}
-            onPress={() => saveRole(uid, next)}
-          >
-            <Text style={s.roleBtnTxt}>{role}</Text>
-            <Ionicons
-              name={role === "manager" ? "chevron-down" : "chevron-up"}
-              size={14}
-              color="#fff"
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={s.cardBody}>
-          <View style={s.rateContainer}>
-            <Text style={s.rateLabel}>Hourly Rate</Text>
-            <TouchableOpacity
-              style={[s.rateInputContainer, isEditing && s.rateInputFocused]}
-              // onPress={() => focusRateInput(uid)}
-              activeOpacity={1}
-            >
-              <Text style={s.currencySymbol}>$</Text>
-              <TextInput
-                // ref={(ref) => (rateInputRefs.current[uid] = ref)}
-                style={s.rateInput}
-                value={roleMap[uid + "_rate"] || ""}
-                onChangeText={(t) => handleRateChange(uid, t)}
-                onBlur={() => handleRateBlur(uid)}
-                keyboardType="numeric"
-                placeholder="0.00"
-                selectTextOnFocus={true}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={s.removeBtn}
-            onPress={() => removeEmployee(uid)}
-          >
-            <Ionicons name="trash-outline" size={16} color="#888" />
-            <Text style={s.removeTxt}>Remove</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
 
   /* Selected employee chip */
   const EmployeeChip = ({ item, onRemove }) => (
@@ -335,7 +347,19 @@ export default function ManageEmployees({ business }) {
             <Text style={s.emptyText}>No employees added yet</Text>
           </View>
         ) : (
-          current.map((item) => <EmployeeCard key={item.value} item={item} />)
+          current.map((item) => (
+            <EmployeeCard
+              key={item.value}
+              item={item}
+              roleMap={roleMap}
+              s={s}
+              editingRate={editingRate}
+              handleRateBlur={handleRateBlur}
+              handleRateChange={handleRateChange}
+              removeEmployee={removeEmployee}
+              saveRole={saveRole}
+            />
+          ))
         )}
       </View>
     </View>

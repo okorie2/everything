@@ -9,7 +9,7 @@
         "distribution": "internal",
         "channel": "development"
       },
-      "ApkBuild":{
+      "apk":{
         "android":{
           "buildType": "apk"
         }
@@ -27,4 +27,3 @@
       "production": {}
     }
   }
-  

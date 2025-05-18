@@ -7,7 +7,7 @@ const AttendButton = ({ slotStart, slotEnd, isBooked, onAttend, style }) => {
   const now = new Date();
   const isCurrentSlot = now >= slotStart && now < slotEnd;
 
-  // if (!isCurrentSlot) return null;
+  if (!isCurrentSlot) return null;
 
   const timeToEnd = (slotEnd - now) / (1000 * 60); // in minutes
   const isMissed = timeToEnd <= 10;

@@ -58,19 +58,21 @@ export default function SnapshotCards({ business }) {
   /* 3 — Upcoming deadlines (next 7 d, not completed) */
   useEffect(() => {
     const sevenDays = new Date(Date.now() + 7 * 864e5);
-    (async () => {
-      const tasksSnap = await getDocs(
-        collection(db, "businesses", business.business_id, "tasks")
-      );
-      const count = tasksSnap.docs.filter((d) => {
+    const tasksQuery = query(
+      collection(db, "businesses", business.business_id, "tasks")
+    );
+    const unsub = onSnapshot(tasksQuery, (snap) => {
+      let count = 0;
+      snap.forEach((d) => {
         const data = d.data();
-        if (data.status === "completed") return false;
-        if (!data.due_date) return false;
+        if (data.status === "completed") return;
+        if (!data.due_date) return;
         const due = data.due_date.seconds * 1000;
-        return due <= sevenDays.getTime();
-      }).length;
+        if (due <= sevenDays.getTime()) count++;
+      });
       setDueSoon(count);
-    })();
+    });
+    return unsub;
   }, [business.business_id]);
 
   /* Loading state: show once all three numbers populated */
@@ -87,7 +89,6 @@ export default function SnapshotCards({ business }) {
 
   return (
     <View style={styles.wrapper}>
-
       <Card label="Employees" value={employeeCount} color={COLORS.employees} />
       <Card label="Deadlines ≤ 7 d" value={dueSoon} color={COLORS.deadlines} />
     </View>

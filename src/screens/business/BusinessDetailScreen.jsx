@@ -242,9 +242,12 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         <TouchableOpacity
           onPress={async () => {
             try {
-              await updateDoc(doc(db, "businesses", business.docId), {
-                status: "approved",
-              });
+              await updateDoc(
+                doc(db, "businesses", business?.docId ?? business.business_id),
+                {
+                  status: "approved",
+                }
+              );
 
               Alert.alert(
                 "Business Approved",

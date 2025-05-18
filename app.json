@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -21,10 +22,21 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "gradleProperties": {
+        "org.gradle.jvmargs": "-Xmx2048m -Dfile.encoding=UTF-8",
+        "newArchEnabled": "false",
+        "android.disableAutomaticComponentCreation": "true"
+      },
       "package": "com.bimafrontend.everything"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6644e1e1-fd5a-45d2-9dee-314a7bdf57d8"
+      }
+    },
+    "owner": "okorie2"
   }
 }

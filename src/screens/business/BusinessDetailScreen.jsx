@@ -39,7 +39,7 @@ const COLORS = {
 
 const BusinessDetailScreen = ({ route, navigation }) => {
   const { business: routeBusiness } = route.params;
-  const business_id = routeBusiness?.docId ?? routeBusiness?.business_id ?? ""
+  const business_id = routeBusiness?.docId ?? routeBusiness?.business_id ?? "";
   const [role, setRole] = useState(null); // "owner" | "employee" | "visitor"
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -231,7 +231,7 @@ const BusinessDetailScreen = ({ route, navigation }) => {
       <View style={styles.tabContainer}>
         {renderTabButton("overview", "Overview")}
         {role === "owner" && renderTabButton("manage", "Manage")}
-        {role === "owner" && renderTabButton("records", "Records")}
+        {role === "owner" && isAdmin && renderTabButton("records", "Records")}
         {(role === "owner" || role === "employee") &&
           renderTabButton("analytics", "Analytics")}
         {role === "owner" && renderTabButton("payroll", "Payroll")}

@@ -23,7 +23,7 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { db } from "../../../../backend/firebase"; // Adjust the import path as necessary
+import { db, auth } from "../../../../backend/firebase"; // Adjust the import path as necessary
 import DropDownPicker from "react-native-dropdown-picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -34,6 +34,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import moment from "moment";
 import { COLORS } from "./EmployeeDashboard";
 import { useNavigation } from "@react-navigation/native";
+import { getAuth } from "firebase/auth";
 
 const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [taskForm, setTaskForm] = useState({
@@ -42,7 +43,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     priority: "medium",
     due_date: new Date(),
   });
-  const navigation = useNavigation()
+  const navigation = useNavigation();
 
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
@@ -57,6 +58,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
 
   const priorityItems = [
     { label: "High Priority", value: "high" },
@@ -95,7 +97,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
     fetchEmployees();
   }, [business]);
-
 
   // Fetch all tasks
   useEffect(() => {
@@ -350,6 +351,10 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
   const fetchPatientInfo = async (patientId) => {
     if (!patientId) return null;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return null;
+    }
 
     try {
       const userDoc = doc(db, "user", patientId);
@@ -367,6 +372,10 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
   const fetchStaffInfo = async (staffId) => {
     if (!staffId) return null;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return null;
+    }
 
     try {
       const userDoc = doc(db, "user", staffId);
@@ -402,14 +411,12 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
         id: doc.id,
         ...doc.data(),
       }));
-      console.log(records)
 
       setPatientRecords(records);
 
       // Fetch patient info for each record
       const patientInfoMap = {};
       for (const record of records) {
-        console.log(record,"rec")
         if (record.patientid) {
           const info = await fetchPatientInfo(record.patientid);
           if (info) {
@@ -428,8 +435,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
           }
         }
       }
-      setStaffInfo(staffInfoMap)
-
+      setStaffInfo(staffInfoMap);
     } catch (err) {
       console.error("Error fetching patient records:", err);
     }
@@ -462,7 +468,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
               {patient.first_name || "Patient"} {patient.last_name || ""}
             </Text>
           </View>
-  
+
           <View style={styles.patientCardRight}>
             <Text style={styles.patientAppointmentDay}>
               {record.appointmentDay}
@@ -475,7 +481,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
             </View>
           </View>
         </View>
-        
+
         {/* Staff information section */}
         {staff && (staff.first_name || staff.last_name) && (
           <View style={styles.staffInfoContainer}>
@@ -487,7 +493,9 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
               </Text>
               {staff.specialization && (
                 <View style={styles.specializationBadge}>
-                  <Text style={styles.specializationText}>{staff.specialization}</Text>
+                  <Text style={styles.specializationText}>
+                    {staff.specialization}
+                  </Text>
                 </View>
               )}
             </View>
@@ -832,7 +840,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1a2a6c",
     marginLeft: 8,
-    marginBottom:12,
+    marginBottom: 12,
   },
   formCard: {
     backgroundColor: "#fff",
@@ -991,8 +999,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 6,
   },
-   // Records Section
-  
+  // Records Section
+
   patientCard: {
     backgroundColor: "#f9f9f9",
     borderRadius: 10,

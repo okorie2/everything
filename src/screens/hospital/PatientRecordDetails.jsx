@@ -78,7 +78,7 @@ const PatientRecordScreen = ({ route, navigation }) => {
     };
 
     const fetchInfo = async () => {
-      await Promise.all([fetchPatientInfo(), fetchStaffInfo()]);
+      await Promise.allSettled([fetchPatientInfo(), fetchStaffInfo()]);
     };
 
     fetchInfo();

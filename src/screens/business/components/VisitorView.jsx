@@ -144,7 +144,7 @@ const VisitorView = ({ business }) => {
     const appointment = {
       userId: user.uid,
       clinicianId: business.owner_id,
-      businessId: business.id,
+      businessId: business.business_id,
       businessName: business.name,
       start: startTime,
       end: endTime,
@@ -178,32 +178,16 @@ const VisitorView = ({ business }) => {
         <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.pickerContainer,
-                  {
-                    top: datePickerPosition.top,
-                    left: datePickerPosition.left,
-                  },
-                ]}
-              >
-                <View style={styles.pickerHeader}>
-                  <Text style={styles.pickerTitle}>Select Date</Text>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.pickerCloseButton}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  testID="datePicker"
-                  value={date}
-                  mode="date"
-                  is24Hour={false}
-                  display="calendar"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                  style={styles.picker}
-                />
-              </View>
+              <DateTimePicker
+                testID="datePicker"
+                value={date}
+                mode="date"
+                is24Hour={false}
+                display="calendar"
+                onChange={handleDateChange}
+                minimumDate={new Date()}
+                style={styles.picker}
+              />
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
@@ -224,31 +208,15 @@ const VisitorView = ({ business }) => {
         <TouchableWithoutFeedback onPress={() => setShowTimePicker(false)}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.pickerContainer,
-                  {
-                    top: timePickerPosition.top,
-                    left: timePickerPosition.left,
-                  },
-                ]}
-              >
-                <View style={styles.pickerHeader}>
-                  <Text style={styles.pickerTitle}>Select Time</Text>
-                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                    <Text style={styles.pickerCloseButton}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  testID="timePicker"
-                  value={date}
-                  mode="time"
-                  is24Hour={false}
-                  display="clock"
-                  onChange={handleTimeChange}
-                  style={styles.picker}
-                />
-              </View>
+              <DateTimePicker
+                testID="timePicker"
+                value={date}
+                mode="time"
+                is24Hour={false}
+                display="clock"
+                onChange={handleTimeChange}
+                style={styles.picker}
+              />
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>

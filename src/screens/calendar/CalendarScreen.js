@@ -310,7 +310,7 @@ export default function CalendarScreen({ navigation }) {
           mode={viewMode}
           height={600}
           showTime
-          renderEvent={renderEventCell}
+          renderEvent={viewMode === "month" ? renderEventCell : undefined}
           onPressEvent={handleEventPress}
           onPressCell={handleCellPress}
           onSwipeHorizontal={(dir) => {

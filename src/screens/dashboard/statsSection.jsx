@@ -80,22 +80,24 @@ function StatItem({
   onInfoPress,
 }) {
   return (
-    <View style={styles.statItem}>
-      <Text style={styles.statNumber}>{value}</Text>
-      <View style={styles.labelContainer}>
-        <Text style={styles.statLabel}>{label}</Text>
-        <TouchableOpacity
-          style={styles.infoIconButton}
-          onPress={onInfoPress}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="information-outline"
-            size={16}
-            color="#FF8008"
-          />
-        </TouchableOpacity>
-      </View>
+    <View>
+      <TouchableOpacity
+        style={styles.statItem}
+        onPress={onInfoPress}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.statNumber}>{value}</Text>
+        <View style={styles.labelContainer}>
+          <Text style={styles.statLabel}>{label}</Text>
+          <View style={styles.infoIconButton}>
+            <MaterialCommunityIcons
+              name="information-outline"
+              size={16}
+              color="#FF8008"
+            />
+          </View>
+        </View>
+      </TouchableOpacity>
 
       {tooltipVisible && (
         <Animated.View style={[styles.tooltip, { opacity: fadeAnim }]}>

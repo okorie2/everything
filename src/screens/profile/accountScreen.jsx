@@ -565,6 +565,7 @@ const ProfileScreen = ({ navigation }) => {
                 <Text style={styles.badgeCountText}>{employeeJobs.length}</Text>
               </View>
             </TouchableOpacity>
+          
           </View>
 
           {/* Jobs List */}

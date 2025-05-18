@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -21,13 +23,14 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
-  delay,
+  getDoc,
+  addDoc,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../../../../backend/firebase";
-import { MaterialIcons, Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import ClockWidget from "./ClockWidget"; // add at top
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { getAuth } from "firebase/auth";
+import { useNavigation } from "@react-navigation/native";
 
 const ScrollableTabView = ({ children }) => (
   <ScrollView
@@ -54,12 +57,19 @@ const COLORS = {
   border: "#eeeeee",
 };
 
-const EmployeeDashboard = ({ business, navigation, currentUser }) => {
+const EmployeeDashboard = ({ business, currentUser }) => {
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [patientRecords, setPatientRecords] = useState([]);
+  const [patientInfo, setPatientInfo] = useState({});
+  const [activeTab, setActiveTab] = useState("tasks"); // Add state for active tab
+  const navigation = useNavigation();
+
+  // Define HOSPITAL_ID
+  const HOSPITAL_ID = business?.business_id || "default_hospital_id";
 
   // Animation values
   const scrollY = new Animated.Value(0);
@@ -70,6 +80,24 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
   });
 
   const auth = getAuth();
+
+  // Add a function to fetch patient information
+  const fetchPatientInfo = async (patientId) => {
+    if (!patientId) return null;
+
+    try {
+      const userDoc = doc(db, "user", patientId);
+      const userSnapshot = await getDoc(userDoc);
+
+      if (userSnapshot.exists()) {
+        return userSnapshot.data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Error fetching patient info:", err);
+      return null;
+    }
+  };
 
   const fetchTasks = async () => {
     const currentUser = auth.currentUser;
@@ -116,6 +144,49 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
     }
   };
 
+  const fetchPatientRecords = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return;
+    }
+
+    try {
+      const recordsRef = collection(
+        db,
+        "businesses",
+        business.business_id,
+        "clinics",
+        "General",
+        "records"
+      );
+      const q = query(recordsRef, where("staffId", "==", currentUser.uid));
+
+      const snapshot = await getDocs(q);
+
+      const records = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setPatientRecords(records);
+
+      // Fetch patient info for each record
+      const patientInfoMap = {};
+      for (const record of records) {
+        if (record.patientid) {
+          const info = await fetchPatientInfo(record.patientid);
+          if (info) {
+            patientInfoMap[record.patientId] = info;
+          }
+        }
+      }
+
+      setPatientInfo(patientInfoMap);
+    } catch (err) {
+      console.error("Error fetching patient records:", err);
+    }
+  };
+
   const writeDailySummary = async () => {
     const todayId = new Date().toISOString().slice(0, 10);
     const count = tasks.filter((t) => t.consult_end).length;
@@ -140,9 +211,13 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
 
   useEffect(() => {
     fetchTasks();
+    fetchPatientRecords();
     // Set up a task refresh interval every 5 minutes (optional)
     const refreshInterval = setInterval(() => {
-      if (!refreshing) fetchTasks();
+      if (!refreshing) {
+        fetchTasks();
+        fetchPatientRecords();
+      }
     }, 300000);
 
     return () => clearInterval(refreshInterval);
@@ -175,6 +250,7 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchTasks();
+    await fetchPatientRecords();
     setRefreshing(false);
   };
 
@@ -266,6 +342,34 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
         style={[
           styles.filterText,
           selectedFilter === value && { color: "#fff" },
+        ]}
+      >
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  // Main tab component for switching between tasks and records
+  const MainTab = ({ title, value, icon }) => (
+    <TouchableOpacity
+      style={[
+        styles.mainTab,
+        activeTab === value && {
+          borderBottomColor: COLORS.primary,
+          borderBottomWidth: 2,
+        },
+      ]}
+      onPress={() => setActiveTab(value)}
+    >
+      <MaterialIcons
+        name={icon}
+        size={20}
+        color={activeTab === value ? COLORS.primary : COLORS.textSecondary}
+      />
+      <Text
+        style={[
+          styles.mainTabText,
+          activeTab === value && { color: COLORS.primary, fontWeight: "600" },
         ]}
       >
         {title}
@@ -409,6 +513,51 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
     );
   };
 
+  const navigateToPatientRecord = (record) => {
+    navigation.navigate("PatientRecordDetails", { record });
+  };
+
+  // Replace the renderPatientRecord function with a more compact version
+  const renderPatientRecord = (record) => {
+    const patient = patientInfo[record.patientId] || {};
+
+    return (
+      <TouchableOpacity
+        key={record.id}
+        style={styles.patientCard}
+        onPress={() => navigateToPatientRecord(record)}
+      >
+        <View style={styles.patientCardContent}>
+          <View style={styles.patientCardLeft}>
+            <Text style={styles.patientCondition} numberOfLines={1}>
+              {record.condition}
+            </Text>
+            <Text style={styles.patientName} numberOfLines={1}>
+              {patient.first_name || "Patient"}
+              {patient.last_name || ""}
+            </Text>
+          </View>
+
+          <View style={styles.patientCardRight}>
+            <Text style={styles.patientAppointmentDay}>
+              {record.appointmentDay}
+            </Text>
+            <View style={styles.timeContainer}>
+              <MaterialIcons
+                name="access-time"
+                size={12}
+                color={COLORS.textLight}
+              />
+              <Text style={styles.patientAppointmentTime}>
+                {record.appointmentStartTime}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const EmptyListComponent = () => (
     <View style={styles.emptyContainer}>
       <Image
@@ -430,6 +579,17 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
         <MaterialIcons name="refresh" size={14} color="#fff" />
         <Text style={styles.refreshText}>Refresh</Text>
       </TouchableOpacity>
+    </View>
+  );
+
+  const EmptyRecordsComponent = () => (
+    <View style={styles.emptyRecordsContainer}>
+      <MaterialIcons
+        name="medical-services"
+        size={40}
+        color={COLORS.textLight}
+      />
+      <Text style={styles.emptyRecordsText}>No patient records found</Text>
     </View>
   );
 
@@ -463,13 +623,13 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
               color={COLORS.secondary}
             />
             {tasks.filter(
-              (t) => t.status === "pending" && t.priority === "high"
+              (t) => t.status === "pending" || t.priority === "high"
             ).length > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.badgeText}>
                   {
                     tasks.filter(
-                      (t) => t.status === "pending" && t.priority === "high"
+                      (t) => t.status === "pending" || t.priority === "high"
                     ).length
                   }
                 </Text>
@@ -479,110 +639,86 @@ const EmployeeDashboard = ({ business, navigation, currentUser }) => {
         </View>
       </Animated.View>
 
-      {/* Filter tabs */}
-      <View style={styles.filterContainer}>
-        <ScrollableTabView>
-          <FilterTab title="All" value="all" icon="list" />
-          <FilterTab title="Pending" value="pending" icon="time-outline" />
-          <FilterTab title="In Progress" value="in-progress" icon="play" />
-          <FilterTab
-            title="Completed"
-            value="completed"
-            icon="checkmark-circle"
+      {/* Main Tabs for Tasks and Records */}
+      <View style={styles.mainTabsContainer}>
+        <MainTab title="Tasks" value="tasks" icon="assignment" />
+        {HOSPITAL_ID === "bethel-hospital" && (
+          <MainTab
+            title="Patient Records"
+            value="records"
+            icon="medical-services"
           />
-          <FilterTab title="Urgent" value="urgent" icon="warning" />
-        </ScrollableTabView>
+        )}
       </View>
 
-      {/* Task summary */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <View
-            style={[
-              styles.summaryIcon,
-              { backgroundColor: COLORS.pending + "20" },
-            ]}
-          >
-            <MaterialIcons
-              name="hourglass-empty"
-              size={20}
-              color={COLORS.pending}
-            />
+      {/* Content based on active tab */}
+      {activeTab === "tasks" ? (
+        <>
+          {/* Filter tabs */}
+          <View style={styles.filterContainer}>
+            <ScrollableTabView>
+              <FilterTab title="All" value="all" icon="list" />
+              <FilterTab title="Pending" value="pending" icon="time-outline" />
+              <FilterTab title="In Progress" value="in-progress" icon="play" />
+              <FilterTab
+                title="Completed"
+                value="completed"
+                icon="checkmark-circle"
+              />
+              <FilterTab title="Urgent" value="urgent" icon="warning" />
+            </ScrollableTabView>
           </View>
-          <Text style={styles.summaryCount}>
-            {tasks.filter((task) => task.status === "pending").length}
-          </Text>
-          <Text style={styles.summaryLabel}>Pending</Text>
-        </View>
 
-        <View style={styles.summaryCard}>
-          <View
-            style={[
-              styles.summaryIcon,
-              { backgroundColor: COLORS.inProgress + "20" },
-            ]}
-          >
-            <MaterialIcons
-              name="play-circle-filled"
-              size={20}
-              color={COLORS.inProgress}
+          {/* Task List */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Loading your tasks...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredTasks}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[COLORS.primary]}
+                />
+              }
+              ListEmptyComponent={EmptyListComponent}
+              contentContainerStyle={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                {
+                  useNativeDriver: false,
+                }
+              )}
             />
-          </View>
-          <Text style={styles.summaryCount}>
-            {tasks.filter((task) => task.status === "in-progress").length}
-          </Text>
-          <Text style={styles.summaryLabel}>In Progress</Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View
-            style={[
-              styles.summaryIcon,
-              { backgroundColor: COLORS.completed + "20" },
-            ]}
-          >
-            <MaterialIcons
-              name="check-circle"
-              size={20}
-              color={COLORS.completed}
-            />
-          </View>
-          <Text style={styles.summaryCount}>
-            {tasks.filter((task) => task.status === "completed").length}
-          </Text>
-          <Text style={styles.summaryLabel}>Completed</Text>
-        </View>
-      </View>
-
-      <ClockWidget bizId={business.business_id} />
-
-      {/* Task List */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading your tasks...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredTasks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-            />
-          }
-          ListEmptyComponent={EmptyListComponent}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
           )}
-        />
+        </>
+      ) : (
+        /* Patient Records View */
+        <View style={styles.recordsContainer}>
+          <FlatList
+            data={patientRecords}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => renderPatientRecord(item)}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[COLORS.primary]}
+              />
+            }
+            ListEmptyComponent={EmptyRecordsComponent}
+            contentContainerStyle={styles.recordsListContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
       )}
 
       {/* Add task floating button */}
@@ -667,6 +803,25 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 10,
     fontWeight: "bold",
+  },
+  // Main tabs styling
+  mainTabsContainer: {
+    flexDirection: "row",
+    backgroundColor: COLORS.cardBg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  mainTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  mainTabText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginLeft: 6,
   },
   filterContainer: {
     marginVertical: 14,
@@ -899,6 +1054,93 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  // Records container styling
+  recordsContainer: {
+    flex: 1,
+  },
+  recordsListContainer: {
+    padding: 16,
+    paddingBottom: 80,
+  },
+  patientCard: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.secondary,
+  },
+  patientCardContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  patientCardLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  patientCardRight: {
+    alignItems: "flex-end",
+  },
+  patientCondition: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  patientName: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  patientAppointmentDay: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  timeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  patientAppointmentTime: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    marginLeft: 2,
+  },
+  emptyRecordsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 12,
+    marginTop: 20,
+    marginHorizontal: 16,
+  },
+  emptyRecordsText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 10,
+  },
+  button: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    elevation: 10,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 export default EmployeeDashboard;

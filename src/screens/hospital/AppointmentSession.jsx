@@ -14,49 +14,28 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import moment from "moment";
-
-// Mock data for staff members - replace with your API call
-const STAFF_MEMBERS = [
-  {
-    id: "staff1",
-    name: "Dr. Sarah Johnson",
-    role: "General Physician",
-    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-    specialization: "Family Medicine",
-    experience: "8 years",
-  },
-  {
-    id: "staff2",
-    name: "Dr. Michael Chen",
-    role: "Cardiologist",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    specialization: "Heart Health",
-    experience: "12 years",
-  },
-  {
-    id: "staff3",
-    name: "Dr. Emily Rodriguezyb",
-    role: "Pediatrician",
-    avatar: "https://randomuser.me/api/portraits/women/68.jpg",
-    specialization: "Child Health",
-    experience: "10 years",
-  },
-  {
-    id: "staff4",
-    name: "Dr. James Wilson",
-    role: "Dermatologist",
-    avatar: "https://randomuser.me/api/portraits/men/52.jpg",
-    specialization: "Skin Conditions",
-    experience: "15 years",
-  },
-];
+import {
+  doc,
+  getDoc,
+  addDoc,
+  getDocs,
+  serverTimestamp,
+  collection,
+} from "firebase/firestore";
+import { db, auth } from "../../../backend/firebase";
 
 const AppointmentSessionScreen = ({ navigation, route }) => {
   // You can pass appointmentId or other params through route if needed
-  const appointmentDate = route?.params?.appointmentDate || new Date();
+  const { clinicId, item } = route?.params;
+  const appointmentDate = item?.date;
+  const appointmentStartTime = item?.slotStart;
+  const appointmentEndTime = item?.slotEnd;
+  const uid = auth.currentUser.uid;
 
   const [loading, setLoading] = useState(false);
+  const [staffLoading, setStaffLoading] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [staffMembers, setStaffMembers] = useState(null);
   const [symptoms, setSymptoms] = useState("");
   const [sessionComplete, setSessionComplete] = useState(false);
   const [appointmentData, setAppointmentData] = useState({
@@ -66,12 +45,220 @@ const AppointmentSessionScreen = ({ navigation, route }) => {
       completed: null,
     },
     appointmentDay: moment(appointmentDate).format("YYYY-MM-DD"),
+    appointmentStartTime: moment(appointmentStartTime).format("hh:mm:A"),
+    appointmentEndTime: moment(appointmentEndTime).format("hh:mm:A"),
     staffId: "",
     symptoms: "",
     diagnosis: "",
     prescription: [],
     attendingStaff: null,
+    patientid: uid,
   });
+
+  // Helper function to save mock diagnosis and prescriptions to the database
+  const seedMockMedicalData = async () => {
+    // Check if we already have data in the database
+    const querySnapshot = await getDocs(collection(db, "diagnoses"));
+
+    if (!querySnapshot.empty) {
+      console.log("Database already seeded with mock diagnoses");
+      return;
+    }
+
+    // Mock diagnoses with matching prescriptions
+    const mockMedicalData = [
+      {
+        condition: "Upper Respiratory Infection",
+        diagnosis:
+          "Based on your symptoms, you appear to have a mild upper respiratory infection.",
+        prescriptions: [
+          {
+            id: "med1",
+            name: "Amoxicillin",
+            dosage: "500mg",
+            frequency: "Every 8 hours",
+            duration: "7 days",
+            instructions: "Take with food",
+          },
+          {
+            id: "med2",
+            name: "Paracetamol",
+            dosage: "500mg",
+            frequency: "Every 6 hours as needed",
+            duration: "3 days",
+            instructions: "Take for fever or pain",
+          },
+        ],
+      },
+      {
+        condition: "Seasonal Allergies",
+        diagnosis:
+          "Your symptoms suggest you are experiencing seasonal allergies. This is common during this time of year.",
+        prescriptions: [
+          {
+            id: "med3",
+            name: "Cetirizine",
+            dosage: "10mg",
+            frequency: "Once daily",
+            duration: "As needed during allergy season",
+            instructions: "Take preferably at night",
+          },
+          {
+            id: "med4",
+            name: "Fluticasone Nasal Spray",
+            dosage: "1-2 sprays per nostril",
+            frequency: "Once daily",
+            duration: "As needed during allergy season",
+            instructions: "Use after clearing nasal passages",
+          },
+        ],
+      },
+      {
+        condition: "Gastroenteritis",
+        diagnosis:
+          "You appear to be suffering from viral gastroenteritis, commonly known as stomach flu.",
+        prescriptions: [
+          {
+            id: "med5",
+            name: "Oral Rehydration Solution",
+            dosage: "200ml",
+            frequency: "After each loose stool",
+            duration: "Until symptoms subside",
+            instructions: "Drink slowly to prevent vomiting",
+          },
+          {
+            id: "med6",
+            name: "Loperamide",
+            dosage: "2mg",
+            frequency: "After each loose stool (max 8mg/day)",
+            duration: "2 days maximum",
+            instructions:
+              "Do not take if you have high fever or blood in stool",
+          },
+        ],
+      },
+      {
+        condition: "Tension Headache",
+        diagnosis:
+          "You are experiencing a tension headache, likely due to stress or muscle tension in the neck and shoulders.",
+        prescriptions: [
+          {
+            id: "med7",
+            name: "Ibuprofen",
+            dosage: "400mg",
+            frequency: "Every 6-8 hours as needed",
+            duration: "Not more than 3 days",
+            instructions: "Take with food to avoid stomach upset",
+          },
+          {
+            id: "med8",
+            name: "Muscle Relaxant Cream",
+            dosage: "Apply to affected areas",
+            frequency: "2-3 times daily",
+            duration: "As needed",
+            instructions: "Massage gently into neck and shoulder muscles",
+          },
+        ],
+      },
+      {
+        condition: "Mild Dermatitis",
+        diagnosis:
+          "Your skin condition appears to be a mild case of contact dermatitis, possibly from an allergen or irritant.",
+        prescriptions: [
+          {
+            id: "med9",
+            name: "Hydrocortisone Cream",
+            dosage: "1% strength",
+            frequency: "Apply thinly 2-3 times daily",
+            duration: "7 days",
+            instructions: "Avoid applying to broken skin",
+          },
+          {
+            id: "med10",
+            name: "Antihistamine Tablets",
+            dosage: "10mg",
+            frequency: "Once daily",
+            duration: "7 days",
+            instructions: "May cause drowsiness; avoid alcohol",
+          },
+        ],
+      },
+    ];
+
+    try {
+      console.log("Seeding database with mock medical data...");
+      // Add each diagnosis to the database
+      for (const data of mockMedicalData) {
+        await addDoc(collection(db, "diagnoses"), {
+          condition: data.condition,
+          diagnosis: data.diagnosis,
+          prescriptions: data.prescriptions,
+          createdAt: serverTimestamp(),
+        });
+      }
+      console.log("Database seeded successfully!");
+    } catch (error) {
+      console.error("Error seeding database:", error);
+    }
+  };
+
+  //call seeding function
+  useEffect(() => {
+    const runSeeding = async () => {
+      await seedMockMedicalData();
+    };
+
+    runSeeding();
+  }, []);
+
+  // Function to get a random diagnosis from the database
+  const getRandomDiagnosis = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "diagnoses"));
+      if (querySnapshot.empty) {
+        throw new Error("No diagnoses found in the database");
+      }
+
+      const diagnoses = [];
+      querySnapshot.forEach((doc) => {
+        diagnoses.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Select a random diagnosis
+      const randomIndex = Math.floor(Math.random() * diagnoses.length);
+      return diagnoses[randomIndex];
+    } catch (error) {
+      console.error("Error getting random diagnosis:", error);
+      throw error;
+    }
+  };
+
+  //function to save record to db
+  const saveRecord = async (appointmentData) => {
+    try {
+      // Reference to the specific `records` collection for the given clinicId
+      const docRef = await addDoc(
+        collection(
+          db,
+          "businesses",
+          "bethel-hospital",
+          "clinics",
+          clinicId,
+          "records"
+        ),
+        {
+          ...appointmentData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }
+      );
+      console.log("Appointment saved with ID:", docRef.id);
+      return docRef.id;
+    } catch (error) {
+      console.error("Error saving appointment:", error);
+      throw error;
+    }
+  };
 
   // Mock function to simulate getting diagnosis and prescription
   const submitSymptoms = async () => {
@@ -88,51 +275,34 @@ const AppointmentSessionScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Mock response - this would come from your API
-      const mockDiagnosis =
-        "Based on your symptoms, you appear to have a mild upper respiratory infection.";
-      const mockPrescription = [
-        {
-          id: "med1",
-          name: "Amoxicillin",
-          dosage: "500mg",
-          frequency: "Every 8 hours",
-          duration: "7 days",
-          instructions: "Take with food",
-        },
-        {
-          id: "med2",
-          name: "Paracetamol",
-          dosage: "500mg",
-          frequency: "Every 6 hours as needed",
-          duration: "3 days",
-          instructions: "Take for fever or pain",
-        },
-      ];
+      // Get random diagnosis and prescription from database
+      const randomMedicalData = await getRandomDiagnosis();
 
       // Update appointment data
       const now = new Date();
-      setAppointmentData({
+      const updatedAppointmentData = {
         stats: {
           duration: 15, // minutes
           started: appointmentData.stats.started || now.toISOString(),
           completed: now.toISOString(),
         },
         appointmentDay: moment(appointmentDate).format("YYYY-MM-DD"),
+        appointmentStartTime: moment(appointmentStartTime).format("hh:mm:A"),
+        appointmentEndTime: moment(appointmentEndTime).format("hh:mm:A"),
         staffId: selectedStaff.id,
+        patientid: uid,
         symptoms: symptoms,
-        diagnosis: mockDiagnosis,
-        prescription: mockPrescription,
-        attendingStaff: selectedStaff,
-      });
+        diagnosis: randomMedicalData.diagnosis,
+        prescription: randomMedicalData.prescriptions,
+        condition: randomMedicalData.condition,
+      };
 
+      // Save the appointment data to the database
+      await saveRecord(updatedAppointmentData);
+
+      // Update state
+      setAppointmentData(updatedAppointmentData);
       setSessionComplete(true);
-
-      // Here you would save the data to your backend
-      // saveAppointmentData(appointmentData);
     } catch (error) {
       console.error("Error submitting symptoms:", error);
       Alert.alert(
@@ -168,6 +338,97 @@ const AppointmentSessionScreen = ({ navigation, route }) => {
     navigation.navigate("BookAppointment");
   };
 
+  //query for staff members
+  useEffect(() => {
+    const fetchBethelHospitalStaff = async () => {
+      setStaffLoading(true);
+      console.log("clikced");
+      try {
+        // Get the specific hospital document directly by ID
+        const hospitalDocRef = doc(db, "businesses", "bethel-hospital");
+        const hospitalDoc = await getDoc(hospitalDocRef);
+
+        if (!hospitalDoc.exists()) {
+          console.log("Hospital not found");
+          setStaffMembers([]);
+          return;
+        }
+
+        // Get the hospital data
+        const hospitalData = hospitalDoc.data();
+
+        // Get the employee IDs array
+        const employeeIds = hospitalData.employees || [];
+
+        if (employeeIds.length === 0) {
+          console.log("No employees found for this hospital");
+          setStaffMembers([]);
+          return;
+        }
+
+        // Fetch user data for each employee ID
+        const staffData = [];
+
+        // Process employee IDs in batches to avoid performance issues
+        const batchSize = 10;
+        for (let i = 0; i < employeeIds.length; i += batchSize) {
+          const batch = employeeIds.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(async (userId) => {
+              const userDocRef = doc(db, "user", userId);
+              const userDoc = await getDoc(userDocRef);
+
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+
+                // Handle potentially missing fields with fallbacks
+                return {
+                  id: userId,
+                  name: [
+                    userData.title || "",
+                    userData.first_name || "",
+                    userData.last_name || "",
+                  ]
+                    .filter(Boolean)
+                    .join(" "),
+                  role:
+                    userData.role ||
+                    userData.specialization ||
+                    "Healthcare Provider",
+                  avatar:
+                    userData.profileImage || "https://via.placeholder.com/150",
+                  specialization:
+                    userData.specialization || userData.department || "",
+                  experience:
+                    userData.experience ||
+                    `${Math.floor(Math.random() * 10) + 1} years`,
+                };
+              }
+              return null;
+            })
+          );
+
+          // Add valid results to staffData
+          staffData.push(...batchResults.filter((staff) => staff !== null));
+        }
+        console.log(staffData);
+        setStaffMembers(staffData);
+      } catch (error) {
+        console.error("Error fetching staff members:", error);
+        Alert.alert(
+          "Error",
+          "Failed to load hospital staff. Please try again later."
+        );
+        // Keep the array empty on error
+        setStaffMembers([]);
+      } finally {
+        setStaffLoading(false);
+      }
+    };
+
+    fetchBethelHospitalStaff();
+  }, []);
+
   // Start the session timer when staff is selected
   useEffect(() => {
     if (selectedStaff && !appointmentData.stats.started) {
@@ -183,45 +444,82 @@ const AppointmentSessionScreen = ({ navigation, route }) => {
     }
   }, [selectedStaff]);
 
+  // Helper function to generate initials from name
+  const getInitials = (name) => {
+    if (!name) return "??";
+
+    const names = name.trim().split(" ");
+    if (names.length === 1)
+      return (names[0].charAt(0) + names[0].charAt(1)).toUpperCase();
+
+    // Get first letter of first and last name
+    return (
+      names[0].charAt(0) + names[names.length - 1].charAt(0)
+    ).toUpperCase();
+  };
+
   const renderStaffSelection = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Select Healthcare Provider</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.staffList}
-      >
-        {STAFF_MEMBERS.map((staff) => (
-          <TouchableOpacity
-            key={staff.id}
-            style={[
-              styles.staffCard,
-              selectedStaff?.id === staff.id && styles.selectedStaffCard,
-            ]}
-            onPress={() => setSelectedStaff(staff)}
-          >
-            <Image source={{ uri: staff.avatar }} style={styles.staffAvatar} />
-            <View style={styles.staffInfo}>
-              <Text style={styles.staffName}>{staff.name}</Text>
-              <Text style={styles.staffRole}>{staff.role}</Text>
-              <View style={styles.staffExperience}>
-                <Ionicons name="time-outline" size={12} color="#666" />
-                <Text style={styles.staffExperienceText}>
-                  {staff.experience}
-                </Text>
+      {staffLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF8C00" />
+          <Text style={styles.loadingText}>Loading staff members...</Text>
+        </View>
+      ) : staffMembers?.length === 0 ? (
+        <View style={styles.noStaffContainer}>
+          <Ionicons name="alert-circle-outline" size={40} color="#FF8C00" />
+          <Text style={styles.noStaffText}>No staff members available</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.staffList}
+        >
+          {staffMembers?.map((staff) => (
+            <TouchableOpacity
+              key={staff.id}
+              style={[
+                styles.staffCard,
+                selectedStaff?.id === staff.id && styles.selectedStaffCard,
+              ]}
+              onPress={() => setSelectedStaff(staff)}
+            >
+              {staff.avatar &&
+              staff.avatar !== "https://via.placeholder.com/150" ? (
+                <Image
+                  source={{ uri: staff.avatar }}
+                  style={styles.staffAvatar}
+                />
+              ) : (
+                <View style={[styles.staffAvatar, styles.initialsAvatar]}>
+                  <Text style={styles.initialsText}>
+                    {getInitials(staff.name)}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.staffInfo}>
+                <Text style={styles.staffName}>{staff.name}</Text>
+                <Text style={styles.staffRole}>{staff.role}</Text>
+                <View style={styles.staffExperience}>
+                  <Ionicons name="time-outline" size={12} color="#666" />
+                  <Text style={styles.staffExperienceText}>
+                    {staff.experience}
+                  </Text>
+                </View>
               </View>
-            </View>
-            {selectedStaff?.id === staff.id && (
-              <View style={styles.selectedCheckmark}>
-                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              {selectedStaff?.id === staff.id && (
+                <View style={styles.selectedCheckmark}>
+                  <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
-
   const renderSymptomsInput = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Describe Your Symptoms</Text>
@@ -465,6 +763,7 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     position: "relative",
   },
+  noStaffText: { textAlign: "center" },
   selectedStaffCard: {
     borderColor: "#4CAF50",
     borderWidth: 2,
@@ -476,6 +775,16 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginBottom: 10,
     alignSelf: "center",
+  },
+  initialsAvatar: {
+    backgroundColor: "#FF8C00",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  initialsText: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "bold",
   },
   staffInfo: {
     alignItems: "center",

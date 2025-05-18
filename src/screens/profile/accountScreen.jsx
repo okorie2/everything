@@ -134,6 +134,7 @@ const ProfileScreen = ({ navigation }) => {
       // Fetch jobs where user is an employee
       const employeeQuery = query(collection(db, "businesses"), where("employees", "array-contains", currentUser.uid))
       const employeeSnapshot = await getDocs(employeeQuery)
+      
 
       // Get the business details for each employee job
       const employeeJobs = []

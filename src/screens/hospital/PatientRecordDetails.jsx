@@ -1,10 +1,18 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, StatusBar } from "react-native"
-import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons"
-import { doc, getDoc } from "firebase/firestore"
-import { db } from "../../../backend/firebase"
+import { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  StatusBar,
+} from "react-native";
+import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../../backend/firebase";
 
 // Constants for colors - matching the dashboard
 const COLORS = {
@@ -20,42 +28,67 @@ const COLORS = {
   completed: "#2ecc71",
   urgent: "#e74c3c",
   border: "#eeeeee",
-}
+};
 
 const PatientRecordScreen = ({ route, navigation }) => {
-  const { record } = route.params
-  const [loading, setLoading] = useState(true)
-  const [patientInfo, setPatientInfo] = useState(null)
+  const { record } = route.params;
+  const [loading, setLoading] = useState(true);
+  const [patientInfo, setPatientInfo] = useState(null);
+  const [staffInfo, setStaffInfo] = useState(null);
 
   useEffect(() => {
     const fetchPatientInfo = async () => {
       if (!record.patientid) {
-        setLoading(false)
-        return
+        setLoading(false);
+        return;
       }
 
       try {
-        const userDoc = doc(db, "user", record.patientid)
-        const userSnapshot = await getDoc(userDoc)
+        const userDoc = doc(db, "user", record.patientid);
+        const userSnapshot = await getDoc(userDoc);
 
         if (userSnapshot.exists()) {
-          setPatientInfo(userSnapshot.data())
+          setPatientInfo(userSnapshot.data());
         }
-        setLoading(false)
+        setLoading(false);
       } catch (err) {
-        console.error("Error fetching patient info:", err)
-        setLoading(false)
+        console.error("Error fetching patient info:", err);
+        setLoading(false);
       }
-    }
+    };
 
-    fetchPatientInfo()
-  }, [record])
+    const fetchStaffInfo = async () => {
+      if (!record.staffId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const userDoc = doc(db, "user", record.staffId);
+        const userSnapshot = await getDoc(userDoc);
+
+        if (userSnapshot.exists()) {
+          setStaffInfo(userSnapshot.data());
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching staff info:", err);
+        setLoading(false);
+      }
+    };
+
+    const fetchInfo = async () => {
+      await Promise.all([fetchPatientInfo(), fetchStaffInfo()]);
+    };
+
+    fetchInfo();
+  }, [record]);
 
   // Format timestamp to readable date and time
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) return "N/A"
+    if (!timestamp) return "N/A";
 
-    const date = new Date(timestamp.seconds * 1000)
+    const date = new Date(timestamp.seconds * 1000);
     return date.toLocaleString("en-US", {
       month: "short",
       day: "numeric",
@@ -63,21 +96,21 @@ const PatientRecordScreen = ({ route, navigation }) => {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
-    })
-  }
+    });
+  };
 
   // Format duration in minutes to hours and minutes
   const formatDuration = (minutes) => {
-    if (!minutes && minutes !== 0) return "N/A"
+    if (!minutes && minutes !== 0) return "N/A";
 
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
 
     if (hours > 0) {
-      return `${hours}h ${mins}m`
+      return `${hours}h ${mins}m`;
     }
-    return `${mins} minutes`
-  }
+    return `${mins} minutes`;
+  };
 
   if (loading) {
     return (
@@ -85,7 +118,7 @@ const PatientRecordScreen = ({ route, navigation }) => {
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading patient record...</Text>
       </View>
-    )
+    );
   }
 
   return (
@@ -94,8 +127,15 @@ const PatientRecordScreen = ({ route, navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.textPrimary} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons
+            name="arrow-back"
+            size={24}
+            color={COLORS.textPrimary}
+          />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Patient Record</Text>
         <View style={{ width: 24 }} />
@@ -117,23 +157,84 @@ const PatientRecordScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.patientDetails}>
               <Text style={styles.patientName}>
-                {patientInfo?.first_name || ""} {patientInfo?.last_name || "Unknown Patient"}
+                {patientInfo?.first_name || ""}{" "}
+                {patientInfo?.last_name || "Unknown Patient"}
               </Text>
               {patientInfo?.phone && (
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="phone" size={14} color={COLORS.textLight} />
+                  <MaterialIcons
+                    name="phone"
+                    size={14}
+                    color={COLORS.textLight}
+                  />
                   <Text style={styles.infoText}>{patientInfo.phone}</Text>
                 </View>
               )}
               {patientInfo?.email && (
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="email" size={14} color={COLORS.textLight} />
+                  <MaterialIcons
+                    name="email"
+                    size={14}
+                    color={COLORS.textLight}
+                  />
                   <Text style={styles.infoText}>{patientInfo.email}</Text>
                 </View>
               )}
             </View>
           </View>
         </View>
+
+        {/* Staff Info Card */}
+        {staffInfo && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialIcons name="person" size={20} color={COLORS.primary} />
+              <Text style={styles.cardTitle}>Attending Staff</Text>
+            </View>
+
+            <View style={styles.patientInfoHeader}>
+              <View style={[styles.patientAvatar, styles.staffAvatar]}>
+                <Text style={styles.patientInitials}>
+                  {staffInfo?.first_name?.[0] || "S"}
+                  {staffInfo?.last_name?.[0] || ""}
+                </Text>
+              </View>
+              <View style={styles.patientDetails}>
+                <Text style={styles.patientName}>
+                  {staffInfo?.first_name || ""}{" "}
+                  {staffInfo?.last_name || "Unknown Staff"}
+                </Text>
+                {staffInfo?.specialization && (
+                  <View style={styles.specializationBadge}>
+                    <Text style={styles.specializationText}>
+                      {staffInfo.specialization}
+                    </Text>
+                  </View>
+                )}
+                {staffInfo?.phone && (
+                  <View style={styles.infoRow}>
+                    <MaterialIcons
+                      name="phone"
+                      size={14}
+                      color={COLORS.textLight}
+                    />
+                    <Text style={styles.infoText}>{staffInfo.phone}</Text>
+                  </View>
+                )}
+                {staffInfo?.email && (
+                  <View style={styles.infoRow}>
+                    <MaterialIcons
+                      name="email"
+                      size={14}
+                      color={COLORS.textLight}
+                    />
+                    <Text style={styles.infoText}>{staffInfo.email}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Appointment Details Card */}
         <View style={styles.card}>
@@ -161,7 +262,10 @@ const PatientRecordScreen = ({ route, navigation }) => {
                   <Text style={styles.detailLabel}>Started</Text>
                   <Text style={styles.detailValue}>
                     {record.stats.started
-                      ? new Date(record.stats.started).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      ? new Date(record.stats.started).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                       : "N/A"}
                   </Text>
                 </View>
@@ -170,14 +274,19 @@ const PatientRecordScreen = ({ route, navigation }) => {
                   <Text style={styles.detailLabel}>Completed</Text>
                   <Text style={styles.detailValue}>
                     {record.stats.completed
-                      ? new Date(record.stats.completed).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      ? new Date(record.stats.completed).toLocaleTimeString(
+                          [],
+                          { hour: "2-digit", minute: "2-digit" }
+                        )
                       : "N/A"}
                   </Text>
                 </View>
 
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>Duration</Text>
-                  <Text style={styles.detailValue}>{formatDuration(record.stats.duration)}</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDuration(record.stats.duration)}
+                  </Text>
                 </View>
               </>
             )}
@@ -187,7 +296,11 @@ const PatientRecordScreen = ({ route, navigation }) => {
         {/* Medical Information Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <FontAwesome5 name="notes-medical" size={18} color={COLORS.primary} />
+            <FontAwesome5
+              name="notes-medical"
+              size={18}
+              color={COLORS.primary}
+            />
             <Text style={styles.cardTitle}>Medical Information</Text>
           </View>
 
@@ -201,12 +314,16 @@ const PatientRecordScreen = ({ route, navigation }) => {
 
             <View style={styles.medicalInfoItem}>
               <Text style={styles.medicalInfoLabel}>Symptoms</Text>
-              <Text style={styles.medicalInfoValue}>{record.symptoms || "None reported"}</Text>
+              <Text style={styles.medicalInfoValue}>
+                {record.symptoms || "None reported"}
+              </Text>
             </View>
 
             <View style={styles.medicalInfoItem}>
               <Text style={styles.medicalInfoLabel}>Diagnosis</Text>
-              <Text style={styles.medicalInfoValue}>{record.diagnosis || "No diagnosis provided"}</Text>
+              <Text style={styles.medicalInfoValue}>
+                {record.diagnosis || "No diagnosis provided"}
+              </Text>
             </View>
           </View>
         </View>
@@ -215,7 +332,11 @@ const PatientRecordScreen = ({ route, navigation }) => {
         {record.prescription && record.prescription.length > 0 && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialIcons name="medication" size={20} color={COLORS.primary} />
+              <MaterialIcons
+                name="medication"
+                size={20}
+                color={COLORS.primary}
+              />
               <Text style={styles.cardTitle}>Prescription</Text>
             </View>
 
@@ -228,24 +349,40 @@ const PatientRecordScreen = ({ route, navigation }) => {
 
                 <View style={styles.medicationDetails}>
                   <View style={styles.medicationDetail}>
-                    <MaterialIcons name="schedule" size={14} color={COLORS.textLight} />
-                    <Text style={styles.medicationDetailText}>{med.frequency}</Text>
+                    <MaterialIcons
+                      name="schedule"
+                      size={14}
+                      color={COLORS.textLight}
+                    />
+                    <Text style={styles.medicationDetailText}>
+                      {med.frequency}
+                    </Text>
                   </View>
 
                   <View style={styles.medicationDetail}>
-                    <MaterialIcons name="date-range" size={14} color={COLORS.textLight} />
-                    <Text style={styles.medicationDetailText}>{med.duration}</Text>
+                    <MaterialIcons
+                      name="date-range"
+                      size={14}
+                      color={COLORS.textLight}
+                    />
+                    <Text style={styles.medicationDetailText}>
+                      {med.duration}
+                    </Text>
                   </View>
                 </View>
 
                 {med.instructions && (
                   <View style={styles.medicationInstructions}>
                     <Text style={styles.instructionsLabel}>Instructions:</Text>
-                    <Text style={styles.instructionsText}>{med.instructions}</Text>
+                    <Text style={styles.instructionsText}>
+                      {med.instructions}
+                    </Text>
                   </View>
                 )}
 
-                {index < record.prescription.length - 1 && <View style={styles.divider} />}
+                {index < record.prescription.length - 1 && (
+                  <View style={styles.divider} />
+                )}
               </View>
             ))}
           </View>
@@ -253,20 +390,26 @@ const PatientRecordScreen = ({ route, navigation }) => {
 
         {/* Record Metadata */}
         <View style={styles.metadataCard}>
-          <Text style={styles.metadataText}>Created: {formatTimestamp(record.createdAt)}</Text>
-          {record.updatedAt && <Text style={styles.metadataText}>Updated: {formatTimestamp(record.updatedAt)}</Text>}
+          <Text style={styles.metadataText}>
+            Created: {formatTimestamp(record.createdAt)}
+          </Text>
+          {record.updatedAt && (
+            <Text style={styles.metadataText}>
+              Updated: {formatTimestamp(record.updatedAt)}
+            </Text>
+          )}
           <Text style={styles.metadataText}>Record ID: {record.id}</Text>
         </View>
       </ScrollView>
 
       {/* Action Button */}
-      <TouchableOpacity style={styles.actionButton}>
+      {/* <TouchableOpacity style={styles.actionButton}>
         <MaterialIcons name="print" size={20} color="#fff" />
         <Text style={styles.actionButtonText}>Print Record</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -508,6 +651,23 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 8,
   },
-})
+  staffAvatar: {
+    backgroundColor: COLORS.primary, // Different color to distinguish from patient
+  },
+  specializationBadge: {
+    backgroundColor: COLORS.primary + "20",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  specializationText: {
+    color: COLORS.primary,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+});
 
-export default PatientRecordScreen
+export default PatientRecordScreen;

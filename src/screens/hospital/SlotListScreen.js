@@ -363,7 +363,7 @@ export default function SlotListScreen({ route, navigation }) {
           slotEnd={item.slotEnd}
           isBooked={item.isBooked}
           onAttend={() =>
-            navigation.navigate("AppointmentSession", { item, clinicId })
+            navigation.navigate("AppointmentSession", { item, clinicId, clinicImage, clinicTitle })
           }
           style={styles}
         />

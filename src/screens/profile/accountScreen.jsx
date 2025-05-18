@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,19 +15,29 @@ import {
   Image,
   FlatList,
   SectionList,
-} from "react-native"
-import { MaterialIcons, Ionicons } from "@expo/vector-icons"
-import { auth, db, storage } from "../../../backend/firebase"
-import { signOut } from "firebase/auth"
-import { doc, getDoc, updateDoc, collection, getDocs, query, where } from "firebase/firestore"
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import * as ImagePicker from "expo-image-picker"
+} from "react-native";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { auth, db, storage } from "../../../backend/firebase";
+import { signOut } from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  where,
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import * as ImagePicker from "expo-image-picker";
 
 const ProfileScreen = ({ navigation }) => {
-  const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const [editing, setEditing] = useState(false)
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [staffInfo, setStaffInfo] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [userData, setUserData] = useState({
     firstName: "",
     lastName: "",
@@ -37,72 +47,72 @@ const ProfileScreen = ({ navigation }) => {
     age: "",
     email: "",
     profileImage: null,
-  })
-  const [ownedBusinesses, setOwnedBusinesses] = useState([])
-  const [patientRecords, setPatientRecords] = useState([])
-  const [employeeJobs, setEmployeeJobs] = useState([])
-  const [activeTab, setActiveTab] = useState("all") // 'all', 'owned', 'employee'
-  const [sections, setSections] = useState([])
+  });
+  const [ownedBusinesses, setOwnedBusinesses] = useState([]);
+  const [patientRecords, setPatientRecords] = useState([]);
+  const [employeeJobs, setEmployeeJobs] = useState([]);
+  const [activeTab, setActiveTab] = useState("all"); // 'all', 'owned', 'employee'
+  const [sections, setSections] = useState([]);
 
   // Prepare sections data for SectionList
   useEffect(() => {
     const profileSection = {
       title: "profile",
       data: [{ type: "profile" }],
-    }
+    };
 
     const editFormSection = editing
       ? {
           title: "editForm",
           data: [{ type: "editForm" }],
         }
-      : null
+      : null;
 
     const jobsSection = {
       title: "jobs",
       data: [{ type: "jobs" }],
-    }
+    };
 
     const recordsSection = {
       title: "records",
       data: [{ type: "records" }],
-    }
+    };
 
-    const sectionsData = [profileSection]
-    if (editFormSection) sectionsData.push(editFormSection)
-    sectionsData.push(jobsSection, recordsSection)
+    const sectionsData = [profileSection];
+    if (editFormSection) sectionsData.push(editFormSection);
+    sectionsData.push(jobsSection, recordsSection);
 
-    setSections(sectionsData)
-  }, [editing, ownedBusinesses, employeeJobs, patientRecords])
+    setSections(sectionsData);
+  }, [editing, ownedBusinesses, employeeJobs, patientRecords]);
 
   const onRefresh = async () => {
-    setRefreshing(true)
-    await fetchUserData()
-    await fetchUserHealthRecords()
-    setRefreshing(false)
-  }
+    setRefreshing(true);
+    await fetchUserData();
+    await fetchUserHealthRecords();
+    setRefreshing(false);
+  };
 
   const EmptyRecordsComponent = () => (
     <View style={styles.emptyRecordsContainer}>
       <MaterialIcons name="medical-services" size={40} color={"#999999"} />
       <Text style={styles.emptyRecordsText}>No health records found</Text>
     </View>
-  )
+  );
 
   const fetchUserData = async () => {
     try {
-      const currentUser = auth.currentUser
+      const currentUser = auth.currentUser;
       if (!currentUser) {
-        navigation.replace("Login")
-        return
+        navigation.replace("Login");
+        return;
       }
 
       // Get user profile data from Firestore
-      const userDocRef = doc(db, "user", currentUser.uid)
-      const userDoc = await getDoc(userDocRef)
+      const userDocRef = doc(db, "user", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
-        const data = userDoc.data()
+        const data = userDoc.data();
 
         setUserData({
           firstName: data.first_name || "",
@@ -112,137 +122,156 @@ const ProfileScreen = ({ navigation }) => {
           address: data.address || "",
           email: data.email || "",
           profileImage: data.profileImage || null,
-        })
+        });
       } else {
         // Initialize with just email if no profile exists yet
         setUserData((prev) => ({
           ...prev,
           email: currentUser.email || "",
-        }))
+        }));
       }
 
       // Fetch businesses owned by user
-      const ownedQuery = query(collection(db, "businesses"), where("owner_id", "==", currentUser.uid))
-      const ownedSnapshot = await getDocs(ownedQuery)
+      const ownedQuery = query(
+        collection(db, "businesses"),
+        where("owner_id", "==", currentUser.uid)
+      );
+      const ownedSnapshot = await getDocs(ownedQuery);
       const ownedList = ownedSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         type: "owned",
-      }))
-      setOwnedBusinesses(ownedList)
+      }));
+      setOwnedBusinesses(ownedList);
 
       // Fetch jobs where user is an employee
-      const employeeQuery = query(collection(db, "businesses"), where("employees", "array-contains", currentUser.uid))
-      const employeeSnapshot = await getDocs(employeeQuery)
+      const employeeQuery = query(
+        collection(db, "businesses"),
+        where("employees", "array-contains", currentUser.uid)
+      );
+      const employeeSnapshot = await getDocs(employeeQuery);
 
       // Get the business details for each employee job
-      const employeeJobs = []
+      const employeeJobs = [];
       for (const empDoc of employeeSnapshot.docs) {
-        const empData = empDoc.data()
-        console.log(empData, "Employee Jobs")
+        const empData = empDoc.data();
 
         if (empData.business_id) {
-          const businessDoc = await getDoc(doc(db, "businesses", empData.business_id))
+          const businessDoc = await getDoc(
+            doc(db, "businesses", empData.business_id)
+          );
           if (businessDoc.exists()) {
             employeeJobs.push({
               id: empDoc.id,
               ...empData,
               ...businessDoc.data(),
               type: "employee",
-            })
+            });
           }
         }
       }
 
-      setEmployeeJobs(employeeJobs)
+      setEmployeeJobs(employeeJobs);
     } catch (error) {
-      console.log("Error fetching user data:", error)
+      console.log("Error fetching user data:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const fetchStaffInfo = async (staffId) => {
+    if (!staffId) return null;
+
+    try {
+      const userDoc = doc(db, "user", staffId);
+      const userSnapshot = await getDoc(userDoc);
+
+      if (userSnapshot.exists()) {
+        return userSnapshot.data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Error fetching staff info:", err);
+      return null;
+    }
+  };
 
   const fetchUserHealthRecords = async () => {
-    const currentUser = auth.currentUser
+    const currentUser = auth.currentUser;
     if (!currentUser) {
-      return
+      return;
     }
 
     try {
       // Assuming you have a business object or ID available
       // If not, you'll need to adjust this query
-      const business = { business_id: "bethel-hospital" } // Replace with actual business ID or object
+      const business = { business_id: "bethel-hospital" }; // Replace with actual business ID or object
 
-      const recordsRef = collection(db, "businesses", business.business_id, "clinics", "General", "records")
-      const q = query(recordsRef, where("patientid", "==", currentUser.uid))
+      const recordsRef = collection(
+        db,
+        "businesses",
+        business.business_id,
+        "clinics",
+        "General",
+        "records"
+      );
+      const q = query(
+        recordsRef,
+        where("patientid", "==", currentUser.uid),
+      );
 
-      const snapshot = await getDocs(q)
+      const snapshot = await getDocs(q);
 
       const records = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }))
+      }));
+      setPatientRecords(records);
 
-      setPatientRecords(records)
+      const staffInfoMap = {};
+      for (const record of records) {
+        if (record.staffId) {
+          const info = await fetchStaffInfo(record.staffId);
+          if (info) {
+            staffInfoMap[record.staffId] = info;
+          }
+        }
+      }
+      setStaffInfo(staffInfoMap);
     } catch (err) {
-      console.error("Error fetching patient records:", err)
+      console.error("Error fetching patient records:", err);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchUserData()
-    fetchUserHealthRecords()
-  }, [navigation])
+    fetchUserData();
+    fetchUserHealthRecords();
+  }, [navigation]);
 
   const navigateToPatientRecord = (record) => {
-    navigation.navigate("PatientRecordDetails", { record })
-  }
-
-  // Replace the renderPatientRecord function with a more compact version
-  const renderPatientRecord = (record) => {
-    // Since patientInfo might not be defined, create a fallback
-    const patientInfo = {}
-
-    return (
-      <TouchableOpacity key={record.id} style={styles.patientCard} onPress={() => navigateToPatientRecord(record)}>
-        <View style={styles.patientCardContent}>
-          <View style={styles.patientCardLeft}>
-            <Text style={styles.patientCondition} numberOfLines={1}>
-              {record.condition}
-            </Text>
-            <Text style={styles.patientName} numberOfLines={1}>
-              {userData.firstName || "Patient"} {userData.lastName || ""}
-            </Text>
-          </View>
-
-          <View style={styles.patientCardRight}>
-            <Text style={styles.patientAppointmentDay}>{record.appointmentDay}</Text>
-            <View style={styles.timeContainer}>
-              <MaterialIcons name="access-time" size={12} color={"#999999"} />
-              <Text style={styles.patientAppointmentTime}>{record.appointmentStartTime}</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    )
-  }
+    navigation.navigate("PatientRecordDetails", { record });
+  };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchUserData()
-    })
-    return unsubscribe
-  }, [navigation])
+      fetchUserData();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // Request permissions for image library
   useEffect(() => {
-    ;(async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    (async () => {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission Denied", "Sorry, we need camera roll permissions to upload images.")
+        Alert.alert(
+          "Permission Denied",
+          "Sorry, we need camera roll permissions to upload images."
+        );
       }
-    })()
-  }, [])
+    })();
+  }, []);
 
   const pickImage = async () => {
     try {
@@ -251,66 +280,66 @@ const ProfileScreen = ({ navigation }) => {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
-      })
+      });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        uploadImage(result.assets[0].uri)
+        uploadImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error("Error picking image:", error)
-      Alert.alert("Error", "Failed to pick image")
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image");
     }
-  }
+  };
 
   const uploadImage = async (uri) => {
     try {
-      setUploading(true)
-      const currentUser = auth.currentUser
+      setUploading(true);
+      const currentUser = auth.currentUser;
       if (!currentUser) {
-        Alert.alert("Error", "User not authenticated")
-        return
+        Alert.alert("Error", "User not authenticated");
+        return;
       }
-      const response = await fetch(uri)
-      const blob = await response.blob()
-      const storageRef = ref(storage, `user_profile_images/${currentUser.uid}`)
-      await uploadBytes(storageRef, blob)
-      const downloadURL = await getDownloadURL(storageRef)
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `user_profile_images/${currentUser.uid}`);
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
       // Update user's profile in Firestore
-      const userDocRef = doc(db, "user", currentUser.uid)
+      const userDocRef = doc(db, "user", currentUser.uid);
       await updateDoc(userDocRef, {
         profileImage: downloadURL,
-      })
+      });
 
       // Update local state
       setUserData((prev) => ({
         ...prev,
         profileImage: downloadURL,
-      }))
+      }));
 
-      Alert.alert("Success", "Profile picture updated")
+      Alert.alert("Success", "Profile picture updated");
     } catch (error) {
-      console.error("Error uploading image:", error)
-      Alert.alert("Error", error.message || "Failed to upload image")
+      console.error("Error uploading image:", error);
+      Alert.alert("Error", error.message || "Failed to upload image");
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }
+  };
 
   const handleSaveProfile = async () => {
     try {
-      setLoading(true)
-      const currentUser = auth.currentUser
+      setLoading(true);
+      const currentUser = auth.currentUser;
 
       if (!currentUser) {
-        Alert.alert("Error", "User not authenticated")
-        return
+        Alert.alert("Error", "User not authenticated");
+        return;
       }
 
       // Validate data
       if (!userData.firstName || !userData.lastName) {
-        Alert.alert("Error", "First name and last name are required")
-        setLoading(false)
-        return
+        Alert.alert("Error", "First name and last name are required");
+        setLoading(false);
+        return;
       }
 
       // Convert numeric fields
@@ -318,49 +347,49 @@ const ProfileScreen = ({ navigation }) => {
         first_name: userData.firstName,
         last_name: userData.lastName,
         relationship: userData.relationship,
-        phone_number: userData.phone_number ? Number.parseInt(userData.phone_number, 10) : null,
+        phone_number: userData.phone_number
+          ? Number.parseInt(userData.phone_number, 10)
+          : null,
         address: userData.address,
         email: userData.email,
         profileImage: userData.profileImage,
-      }
+      };
 
       // Update user document in Firestore
-      const userDocRef = doc(db, "user", currentUser.uid)
-      await updateDoc(userDocRef, formattedData)
+      const userDocRef = doc(db, "user", currentUser.uid);
+      await updateDoc(userDocRef, formattedData);
 
-      setEditing(false)
-      Alert.alert("Success", "Profile updated successfully")
+      setEditing(false);
+      Alert.alert("Success", "Profile updated successfully");
     } catch (error) {
-      console.error("Error updating profile:", error)
-      Alert.alert("Error", "Failed to update profile")
+      console.error("Error updating profile:", error);
+      Alert.alert("Error", "Failed to update profile");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleLogout = async () => {
     try {
-      await signOut(auth)
+      await signOut(auth);
       // navigation.replace("Login");
     } catch (error) {
-      console.error("Error signing out:", error)
-      Alert.alert("Error", "Failed to sign out")
+      console.error("Error signing out:", error);
+      Alert.alert("Error", "Failed to sign out");
     }
-  }
+  };
 
   const getFilteredJobs = () => {
     switch (activeTab) {
       case "owned":
-        return ownedBusinesses
+        return ownedBusinesses;
       case "employee":
-        return employeeJobs
+        return employeeJobs;
       case "all":
       default:
-        return [...ownedBusinesses, ...employeeJobs]
+        return [...ownedBusinesses, ...employeeJobs];
     }
-  }
-
-  console.log(getFilteredJobs(), "Filtered Jobs")
+  };
 
   const renderJobCard = ({ item }) => (
     <TouchableOpacity
@@ -374,8 +403,15 @@ const ProfileScreen = ({ navigation }) => {
     >
       <View style={styles.jobCardHeader}>
         <Text style={styles.jobCardTitle}>{item.name}</Text>
-        <View style={[styles.jobTypeBadge, { backgroundColor: item.type === "owned" ? "#FF8C00" : "#4CAF50" }]}>
-          <Text style={styles.jobTypeBadgeText}>{item.type === "owned" ? "Owner" : "Employee"}</Text>
+        <View
+          style={[
+            styles.jobTypeBadge,
+            { backgroundColor: item.type === "owned" ? "#FF8C00" : "#4CAF50" },
+          ]}
+        >
+          <Text style={styles.jobTypeBadgeText}>
+            {item.type === "owned" ? "Owner" : "Employee"}
+          </Text>
         </View>
       </View>
 
@@ -408,7 +444,7 @@ const ProfileScreen = ({ navigation }) => {
         </Text>
       )}
     </TouchableOpacity>
-  )
+  );
 
   // Render profile section
   const renderProfileSection = () => (
@@ -421,13 +457,20 @@ const ProfileScreen = ({ navigation }) => {
               <ActivityIndicator size="large" color="#FF8C00" />
             </View>
           ) : userData.profileImage ? (
-            <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
+            <Image
+              source={{ uri: userData.profileImage }}
+              style={styles.profileImage}
+            />
           ) : (
             <View style={styles.profileImagePlaceholder}>
               <Ionicons name="person" size={60} color="#ccc" />
             </View>
           )}
-          <TouchableOpacity style={styles.uploadButton} onPress={pickImage} disabled={uploading}>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={pickImage}
+            disabled={uploading}
+          >
             <Ionicons name="camera" size={16} color="white" />
           </TouchableOpacity>
         </View>
@@ -440,23 +483,34 @@ const ProfileScreen = ({ navigation }) => {
           <Text style={styles.profileEmail}>{userData.email}</Text>
           {userData.phone_number && (
             <Text style={styles.profileDetail}>
-              <Ionicons name="call-outline" size={14} color="#666" /> {userData.phone_number}
+              <Ionicons name="call-outline" size={14} color="#666" />{" "}
+              {userData.phone_number}
             </Text>
           )}
           {userData.relationship && (
             <Text style={styles.profileDetail}>
-              <Ionicons name="heart-outline" size={14} color="#666" /> {userData.relationship}
+              <Ionicons name="heart-outline" size={14} color="#666" />{" "}
+              {userData.relationship}
             </Text>
           )}
         </View>
       </View>
 
-      <TouchableOpacity style={styles.editProfileButton} onPress={() => setEditing(!editing)}>
-        <Ionicons name={editing ? "save-outline" : "create-outline"} size={16} color="white" />
-        <Text style={styles.editProfileButtonText}>{editing ? "Save Profile" : "Edit Profile"}</Text>
+      <TouchableOpacity
+        style={styles.editProfileButton}
+        onPress={() => setEditing(!editing)}
+      >
+        <Ionicons
+          name={editing ? "save-outline" : "create-outline"}
+          size={16}
+          color="white"
+        />
+        <Text style={styles.editProfileButtonText}>
+          {editing ? "Save Profile" : "Edit Profile"}
+        </Text>
       </TouchableOpacity>
     </View>
-  )
+  );
 
   // Render edit form section
   const renderEditFormSection = () => (
@@ -469,7 +523,9 @@ const ProfileScreen = ({ navigation }) => {
           <TextInput
             style={styles.input}
             value={userData.firstName}
-            onChangeText={(text) => setUserData({ ...userData, firstName: text })}
+            onChangeText={(text) =>
+              setUserData({ ...userData, firstName: text })
+            }
             placeholder="Enter first name"
           />
         </View>
@@ -479,7 +535,9 @@ const ProfileScreen = ({ navigation }) => {
           <TextInput
             style={styles.input}
             value={userData.lastName}
-            onChangeText={(text) => setUserData({ ...userData, lastName: text })}
+            onChangeText={(text) =>
+              setUserData({ ...userData, lastName: text })
+            }
             placeholder="Enter last name"
           />
         </View>
@@ -490,7 +548,9 @@ const ProfileScreen = ({ navigation }) => {
         <TextInput
           style={styles.input}
           value={userData.relationship}
-          onChangeText={(text) => setUserData({ ...userData, relationship: text })}
+          onChangeText={(text) =>
+            setUserData({ ...userData, relationship: text })
+          }
           placeholder="Enter relationship status"
         />
       </View>
@@ -500,7 +560,9 @@ const ProfileScreen = ({ navigation }) => {
         <TextInput
           style={styles.input}
           value={userData.phone_number}
-          onChangeText={(text) => setUserData({ ...userData, phone_number: text })}
+          onChangeText={(text) =>
+            setUserData({ ...userData, phone_number: text })
+          }
           placeholder="Enter phone number"
           keyboardType="phone-pad"
         />
@@ -521,7 +583,7 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={styles.saveButtonText}>Save Changes</Text>
       </TouchableOpacity>
     </View>
-  )
+  );
 
   // Render jobs section
   const renderJobsSection = () => (
@@ -531,27 +593,57 @@ const ProfileScreen = ({ navigation }) => {
       {/* Filter Tabs */}
       <View style={styles.filterTabs}>
         <TouchableOpacity
-          style={[styles.filterTab, activeTab === "all" && styles.activeFilterTab]}
+          style={[
+            styles.filterTab,
+            activeTab === "all" && styles.activeFilterTab,
+          ]}
           onPress={() => setActiveTab("all")}
         >
-          <Text style={[styles.filterTabText, activeTab === "all" && styles.activeFilterTabText]}>All</Text>
+          <Text
+            style={[
+              styles.filterTabText,
+              activeTab === "all" && styles.activeFilterTabText,
+            ]}
+          >
+            All
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterTab, activeTab === "owned" && styles.activeFilterTab]}
+          style={[
+            styles.filterTab,
+            activeTab === "owned" && styles.activeFilterTab,
+          ]}
           onPress={() => setActiveTab("owned")}
         >
-          <Text style={[styles.filterTabText, activeTab === "owned" && styles.activeFilterTabText]}>Owned</Text>
+          <Text
+            style={[
+              styles.filterTabText,
+              activeTab === "owned" && styles.activeFilterTabText,
+            ]}
+          >
+            Owned
+          </Text>
           <View style={styles.badgeCount}>
             <Text style={styles.badgeCountText}>{ownedBusinesses.length}</Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterTab, activeTab === "employee" && styles.activeFilterTab]}
+          style={[
+            styles.filterTab,
+            activeTab === "employee" && styles.activeFilterTab,
+          ]}
           onPress={() => setActiveTab("employee")}
         >
-          <Text style={[styles.filterTabText, activeTab === "employee" && styles.activeFilterTabText]}>Jobs</Text>
+          <Text
+            style={[
+              styles.filterTabText,
+              activeTab === "employee" && styles.activeFilterTabText,
+            ]}
+          >
+            Jobs
+          </Text>
           <View style={styles.badgeCount}>
             <Text style={styles.badgeCountText}>{employeeJobs.length}</Text>
           </View>
@@ -575,55 +667,152 @@ const ProfileScreen = ({ navigation }) => {
             {activeTab === "all"
               ? "No jobs or businesses found"
               : activeTab === "owned"
-                ? "You don't own any businesses yet"
-                : "You're not employed anywhere yet"}
+              ? "You don't own any businesses yet"
+              : "You're not employed anywhere yet"}
           </Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate("BusinessList")}>
-            <Text style={styles.addButtonText}>{activeTab === "employee" ? "Find Jobs" : "Add Business"}</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate("BusinessList")}
+          >
+            <Text style={styles.addButtonText}>
+              {activeTab === "employee" ? "Find Jobs" : "Add Business"}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
     </View>
-  )
+  );
 
-  // Render records section
-  const renderRecordsSection = () => (
-    <View style={styles.recordsSection}>
-      <Text style={styles.sectionTitle}>My Health Records</Text>
-      {patientRecords.length > 0 ? (
-        patientRecords.map((record) => renderPatientRecord(record))
-      ) : (
-        <EmptyRecordsComponent />
-      )}
-    </View>
-  )
+  const renderPatientRecord = (record) => {
+    const staff = staffInfo[record.staffId] || {};
+
+    return (
+      <TouchableOpacity
+        key={record.id}
+        style={styles.patientCard}
+        onPress={() => navigateToPatientRecord(record)}
+      >
+        <View style={styles.patientCardContent}>
+          <View style={styles.patientCardLeft}>
+            <Text style={styles.patientCondition} numberOfLines={1}>
+              {record.condition}
+            </Text>
+            <Text style={styles.patientName} numberOfLines={1}>
+              {userData.firstName || "Patient"} {userData.lastName || ""}
+            </Text>
+          </View>
+
+          <View style={styles.patientCardRight}>
+            <Text style={styles.patientAppointmentDay}>
+              {record.appointmentDay}
+            </Text>
+            <View style={styles.timeContainer}>
+              <MaterialIcons name="access-time" size={12} color={"#999999"} />
+              <Text style={styles.patientAppointmentTime}>
+                {record.appointmentStartTime}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Staff information section */}
+        {record.staffId && (
+          <View style={styles.staffInfoContainer}>
+            <View style={styles.staffInfoDivider} />
+            {staff ? (
+              <View style={styles.staffInfoContent}>
+                <View style={styles.staffAvatarSmall}>
+                  <Text style={styles.staffInitialsSmall}>
+                    {staff.first_name?.[0] || "S"}
+                    {staff.last_name?.[0] || ""}
+                  </Text>
+                </View>
+                <View style={styles.staffDetails}>
+                  <Text style={styles.staffName}>
+                    {staff.first_name || ""} {staff.last_name || ""}
+                  </Text>
+                  {staff.specialization && (
+                    <View style={styles.specializationBadge}>
+                      <Text style={styles.specializationText}>
+                        {staff.specialization}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.staffInfoContent}>
+                <MaterialIcons
+                  name="person-outline"
+                  size={14}
+                  color="#999999"
+                />
+                <Text style={[styles.staffInfoText, { color: "#999999" }]}>
+                  Loading staff information...
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderRecordsSection = () => {
+    return (
+      <View style={styles.recordsSection}>
+        <Text style={styles.sectionTitle}>My Health Records</Text>
+        {patientRecords.length > 0 ? (
+          <FlatList
+            data={patientRecords}
+            renderItem={({ item }) => renderPatientRecord(item)}
+            keyExtractor={(item) => item.id}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#FF8008"]}
+              />
+            }
+            contentContainerStyle={styles.recordsList}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <EmptyRecordsComponent />
+        )}
+      </View>
+    );
+  };
 
   // Render section item
   const renderSectionItem = ({ item }) => {
     switch (item.type) {
       case "profile":
-        return renderProfileSection()
+        return renderProfileSection();
       case "editForm":
-        return renderEditFormSection()
+        return renderEditFormSection();
       case "jobs":
-        return renderJobsSection()
+        return renderJobsSection();
       case "records":
-        return renderRecordsSection()
+        return renderRecordsSection();
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FF8C00" />
       </View>
-    )
+    );
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Profile</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -639,11 +828,17 @@ const ProfileScreen = ({ navigation }) => {
         renderSectionHeader={() => null}
         stickySectionHeadersEnabled={false}
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#FF8C00"]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#FF8C00"]}
+          />
+        }
       />
     </KeyboardAvoidingView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -1034,6 +1229,62 @@ const styles = StyleSheet.create({
     color: "#666666",
     marginTop: 10,
   },
-})
+  staffInfoContainer: {
+    marginTop: 8,
+  },
+  staffInfoDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 8,
+  },
+  staffInfoContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  staffAvatarSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FF8008",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  staffInitialsSmall: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  staffDetails: {
+    flex: 1,
+  },
+  staffName: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#333333",
+  },
+  staffInfoText: {
+    fontSize: 12,
+    color: "#666666",
+    marginLeft: 6,
+    fontStyle: "italic",
+  },
+  specializationBadge: {
+    backgroundColor: "#FFE0C4",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  specializationText: {
+    color: "#FF8008",
+    fontWeight: "500",
+    fontSize: 10,
+  },
+  recordsList: {
+    paddingBottom: 16,
+  },
+});
 
-export default ProfileScreen
+export default ProfileScreen;

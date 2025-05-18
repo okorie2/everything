@@ -231,6 +231,7 @@ const BusinessDetailScreen = ({ route, navigation }) => {
       <View style={styles.tabContainer}>
         {renderTabButton("overview", "Overview")}
         {role === "owner" && renderTabButton("manage", "Manage")}
+        {role === "owner" && renderTabButton("records", "Records")}
         {(role === "owner" || role === "employee") &&
           renderTabButton("analytics", "Analytics")}
         {role === "owner" && renderTabButton("payroll", "Payroll")}

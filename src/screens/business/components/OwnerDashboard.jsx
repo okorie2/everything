@@ -14,6 +14,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   updateDoc,
   doc,
   query,
@@ -32,6 +33,8 @@ import PayrollTab from "./PayrollTab";
 import SnapshotCards from "./SnapshotCards"; // Adjust the import path as necessary
 import DateTimePicker from "@react-native-community/datetimepicker";
 import moment from "moment";
+import { COLORS } from "./EmployeeDashboard";
+import { useNavigation } from "@react-navigation/native";
 
 const OwnerDashboard = ({ business, currentUser, activeTab }) => {
   const [taskForm, setTaskForm] = useState({
@@ -40,11 +43,15 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     priority: "medium",
     due_date: new Date(),
   });
+  const navigation = useNavigation()
 
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [taskFilter, setTaskFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [patientInfo, setPatientInfo] = useState({});
+  const [staffInfo, setStaffInfo] = useState({});
+  const [patientRecords, setPatientRecords] = useState([]);
   const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [employeeItems, setEmployeeItems] = useState([]);
@@ -90,7 +97,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     fetchEmployees();
   }, [business]);
 
-  console.log(employeeItems, "employeeItems");
 
   // Fetch all tasks
   useEffect(() => {
@@ -138,7 +144,6 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
 
   const getEmployeeName = (uid) => {
     const employee = employeeItems.find((emp) => emp.value === uid);
-    console.log(employeeItems, "employee");
     return employee ? employee.label : "Unknown Employee";
   };
 
@@ -349,6 +354,166 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
     </View>
   );
 
+  const fetchPatientInfo = async (patientId) => {
+    if (!patientId) return null;
+
+    try {
+      const userDoc = doc(db, "user", patientId);
+      const userSnapshot = await getDoc(userDoc);
+
+      if (userSnapshot.exists()) {
+        return userSnapshot.data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Error fetching patient info:", err);
+      return null;
+    }
+  };
+
+  const fetchStaffInfo = async (staffId) => {
+    if (!staffId) return null;
+
+    try {
+      const userDoc = doc(db, "user", staffId);
+      const userSnapshot = await getDoc(userDoc);
+
+      if (userSnapshot.exists()) {
+        return userSnapshot.data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Error fetching staff info:", err);
+      return null;
+    }
+  };
+  const fetcPatientRecords = async () => {
+    try {
+      // Assuming you have a business object or ID available
+      // If not, you'll need to adjust this query
+      const business = { business_id: "bethel-hospital" }; // Replace with actual business ID or object
+
+      const recordsRef = collection(
+        db,
+        "businesses",
+        business.business_id,
+        "clinics",
+        "General",
+        "records"
+      );
+
+      const snapshot = await getDocs(recordsRef);
+
+      const records = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      console.log(records)
+
+      setPatientRecords(records);
+
+      // Fetch patient info for each record
+      const patientInfoMap = {};
+      for (const record of records) {
+        console.log(record,"rec")
+        if (record.patientid) {
+          const info = await fetchPatientInfo(record.patientid);
+          if (info) {
+            patientInfoMap[record.patientid] = info;
+          }
+        }
+      }
+      setPatientInfo(patientInfoMap);
+
+      const staffInfoMap = {};
+      for (const record of records) {
+        if (record.staffId) {
+          const info = await fetchStaffInfo(record.staffId);
+          if (info) {
+            staffInfoMap[record.staffId] = info;
+          }
+        }
+      }
+      setStaffInfo(staffInfoMap)
+
+    } catch (err) {
+      console.error("Error fetching patient records:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetcPatientRecords();
+  }, [navigation]);
+
+  const navigateToPatientRecord = (record) => {
+    navigation.navigate("PatientRecordDetails", { record });
+  };
+
+  // Replace the renderPatientRecord function with a more compact version
+  const renderPatientRecord = (record) => {
+    const patient = patientInfo[record.patientid] || {};
+    const staff = staffInfo[record.staffId] || {};
+    return (
+      <TouchableOpacity
+        key={record.id}
+        style={styles.patientCard}
+        onPress={() => navigateToPatientRecord(record)}
+      >
+        <View style={styles.patientCardContent}>
+          <View style={styles.patientCardLeft}>
+            <Text style={styles.patientCondition} numberOfLines={1}>
+              {record.condition}
+            </Text>
+            <Text style={styles.patientName} numberOfLines={1}>
+              {patient.first_name || "Patient"} {patient.last_name || ""}
+            </Text>
+          </View>
+  
+          <View style={styles.patientCardRight}>
+            <Text style={styles.patientAppointmentDay}>
+              {record.appointmentDay}
+            </Text>
+            <View style={styles.timeContainer}>
+              <MaterialIcons name="access-time" size={12} color={"#999999"} />
+              <Text style={styles.patientAppointmentTime}>
+                {record.appointmentStartTime}
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        {/* Staff information section */}
+        {staff && (staff.first_name || staff.last_name) && (
+          <View style={styles.staffInfoContainer}>
+            <View style={styles.staffInfoDivider} />
+            <View style={styles.staffInfoContent}>
+              <MaterialIcons name="person" size={14} color="#666666" />
+              <Text style={styles.staffInfoText}>
+                Attended by: {staff.first_name || ""} {staff.last_name || ""}
+              </Text>
+              {staff.specialization && (
+                <View style={styles.specializationBadge}>
+                  <Text style={styles.specializationText}>{staff.specialization}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderRecordsSection = () => (
+    <View style={styles.recordsSection}>
+      <Text style={styles.sectionTitle}>All Health Records</Text>
+      {patientRecords.length > 0 ? (
+        patientRecords.map((record) => renderPatientRecord(record))
+      ) : (
+        <EmptyRecordsComponent />
+      )}
+    </View>
+  );
+
   if (loading && !filteredTasks.length) {
     return (
       <View style={styles.loadingContainer}>
@@ -485,6 +650,7 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
           </>
         )}
 
+        {activeTab === "records" && renderRecordsSection()}
         {activeTab === "manage" && <ManageEmployees business={business} />}
 
         {activeTab === "payroll" && (
@@ -674,6 +840,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1a2a6c",
     marginLeft: 8,
+    marginBottom:12,
   },
   formCard: {
     backgroundColor: "#fff",
@@ -832,6 +999,71 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 6,
   },
+   // Records Section
+  
+  patientCard: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+    borderLeftWidth: 3,
+    borderLeftColor: "#1a2a6c",
+  },
+  patientCardContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  patientCardLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  patientCardRight: {
+    alignItems: "flex-end",
+  },
+  patientCondition: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#333333",
+    marginBottom: 2,
+  },
+  patientName: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  patientAppointmentDay: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#666666",
+    marginBottom: 2,
+  },
+  timeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  patientAppointmentTime: {
+    fontSize: 10,
+    color: "#999999",
+    marginLeft: 2,
+  },
+  emptyRecordsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  emptyRecordsText: {
+    fontSize: 14,
+    color: "#666666",
+    marginTop: 10,
+  },
   filterContainer: {
     flexDirection: "row",
     marginBottom: 16,
@@ -913,5 +1145,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#888",
     marginTop: 2,
+  },
+  staffInfoContainer: {
+    marginTop: 8,
+  },
+  staffInfoDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 8,
+  },
+  staffInfoContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  staffInfoText: {
+    fontSize: 11,
+    color: "#666666",
+    marginLeft: 6,
+    fontStyle: "italic",
+  },
+  specializationBadge: {
+    backgroundColor: "#E3F2FD",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  specializationText: {
+    fontSize: 10,
+    color: "#1976D2",
+    fontWeight: "500",
   },
 });

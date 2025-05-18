@@ -26,7 +26,8 @@ import { db, auth } from "../../../backend/firebase";
 
 const AppointmentSessionScreen = ({ navigation, route }) => {
   // You can pass appointmentId or other params through route if needed
-  const { clinicId, item } = route?.params;
+  const { clinicId, clinicImage, clinicTitle, item } = route?.params;
+
   const appointmentDate = item?.date;
   const appointmentStartTime = item?.slotStart;
   const appointmentEndTime = item?.slotEnd;
@@ -335,7 +336,16 @@ const AppointmentSessionScreen = ({ navigation, route }) => {
 
   const bookNewAppointment = () => {
     // Navigate to booking screen
-    navigation.navigate("BookAppointment");
+    if (clinicId) {
+      navigation.navigate("CityServices", {
+        screen: "Slots", // target nested screen
+        params: {
+          clinicId,
+          clinicTitle,
+          clinicImage,
+        },
+      });
+    }
   };
 
   //query for staff members
@@ -539,7 +549,7 @@ const AppointmentSessionScreen = ({ navigation, route }) => {
               (!selectedStaff || !symptoms.trim()) && styles.disabledButton,
             ]}
             onPress={submitSymptoms}
-            disabled={loading || !selectedStaff || !symptoms.trim()}
+            disabled={loading}
           >
             {loading ? (
               <ActivityIndicator size="small" color="white" />

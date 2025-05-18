@@ -42,7 +42,7 @@ const ScrollableTabView = ({ children }) => (
   </ScrollView>
 );
 // Constants for colors
-const COLORS = {
+export const COLORS = {
   primary: "#FF8008", // Orange (active primary)
   secondary: "#1a2a6c", // Deep blue
   background: "#f8f9fa",

@@ -26,7 +26,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { db } from "../../backend/firebase";
+import { db } from "../../../backend/firebase";
 import { format } from "date-fns";
 import Ionicons from "react-native-vector-icons/Ionicons";
 

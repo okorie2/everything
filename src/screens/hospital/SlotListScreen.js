@@ -132,7 +132,7 @@ export default function SlotListScreen({ route, navigation }) {
 
   const slots = useMemo(() => {
     const slotStartHr = 0; // 9 AM
-    const slotEndHr = 24; // 9 PM
+    const slotEndHr = 24; // End of Day
     const slotDurationHr = 1; // 1 hour
     const maxCapacityPerSlot = 20;
 
@@ -363,7 +363,12 @@ export default function SlotListScreen({ route, navigation }) {
           slotEnd={item.slotEnd}
           isBooked={item.isBooked}
           onAttend={() =>
-            navigation.navigate("AppointmentSession", { item, clinicId, clinicImage, clinicTitle })
+            navigation.navigate("AppointmentSession", {
+              item,
+              clinicId,
+              clinicImage,
+              clinicTitle,
+            })
           }
           style={styles}
         />

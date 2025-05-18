@@ -107,9 +107,6 @@ export default function CalendarScreen({ navigation }) {
 
   const handleEventPress = (event) => {
     const isOwner = event.clinicianId === uid;
-
-    console.log("Event pressed:", event);
-
     try {
       if (event.type === "appointment") {
         const reasonText =

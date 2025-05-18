@@ -19,6 +19,7 @@ import {
   query,
   where,
   serverTimestamp,
+  Timestamp,
   orderBy,
   limit,
 } from "firebase/firestore";
@@ -316,7 +317,12 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
           <View style={styles.taskMetaItem}>
             <MaterialIcons name="event" size={14} color="#555" />
             <Text style={styles.taskMeta}>
-              Due: {moment(item.due_date.toDate()).format("DD/MM/YYYY")}
+              Due:{" "}
+              {moment(
+                item?.due_date instanceof Timestamp
+                  ? item?.due_date?.toDate()
+                  : item?.due_date
+              ).format("DD/MM/YYYY")}
             </Text>
           </View>
         )}
@@ -408,14 +414,16 @@ const OwnerDashboard = ({ business, currentUser, activeTab }) => {
                 setOpen={setPriorityDropdownOpen}
                 items={priorityItems}
                 value={taskForm.priority}
-                onChangeValue={(val) =>
-                  setTaskForm((prev) =>
-                    prev.priority === val ? prev : { ...prev, priority: val }
-                  )
-                }
                 style={styles.dropdown}
                 dropDownContainerStyle={styles.dropdownContainer}
                 placeholder="Select priority"
+                onSelectItem={(item) => {
+                  setTaskForm((prev) =>
+                    prev.priority === item.value
+                      ? prev
+                      : { ...prev, priority: item.value }
+                  );
+                }}
               />
 
               <Text style={styles.label}>Due Date</Text>

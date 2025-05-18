@@ -39,7 +39,7 @@ const COLORS = {
 
 const BusinessDetailScreen = ({ route, navigation }) => {
   const { business: routeBusiness } = route.params;
-  const business_id = routeBusiness?.docId ?? routeBusiness?.business_id ?? ""
+  const business_id = routeBusiness?.docId ?? routeBusiness?.business_id ?? "";
   const [role, setRole] = useState(null); // "owner" | "employee" | "visitor"
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -241,9 +241,12 @@ const BusinessDetailScreen = ({ route, navigation }) => {
         <TouchableOpacity
           onPress={async () => {
             try {
-              await updateDoc(doc(db, "businesses", business.docId), {
-                status: "approved",
-              });
+              await updateDoc(
+                doc(db, "businesses", business?.docId ?? business.business_id),
+                {
+                  status: "approved",
+                }
+              );
 
               Alert.alert(
                 "Business Approved",

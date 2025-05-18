@@ -200,22 +200,6 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.userName}>{userData.name}</Text>
                 </View>
               </View>
-              <View style={styles.headerActions}>
-                <TouchableOpacity style={styles.iconButton}>
-                  <MaterialCommunityIcons
-                    name="bell-outline"
-                    size={24}
-                    color="#333"
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}>
-                  <MaterialCommunityIcons
-                    name="dots-vertical"
-                    size={24}
-                    color="#333"
-                  />
-                </TouchableOpacity>
-              </View>
             </View>
             <View style={styles.headerBottomRow}>
               <View style={styles.weatherCard}>
@@ -507,6 +491,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#F0F0F0",
+    zIndex: -1,
   },
   exploreTitle: {
     fontSize: 22,

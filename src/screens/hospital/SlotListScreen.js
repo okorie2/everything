@@ -131,7 +131,7 @@ export default function SlotListScreen({ route, navigation }) {
   };
 
   const slots = useMemo(() => {
-    const slotStartHr = 9; // 9 AM
+    const slotStartHr = 0; // 9 AM
     const slotEndHr = 24; // 9 PM
     const slotDurationHr = 1; // 1 hour
     const maxCapacityPerSlot = 20;

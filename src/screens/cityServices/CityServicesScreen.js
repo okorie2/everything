@@ -51,13 +51,6 @@ const CITY_SERVICES = [
       },
     ],
   },
-  {
-    id: "bus",
-    name: "Bus System",
-    icon: "bus",
-    description: "Public transportation network",
-    subCategories: [],
-  },
 ];
 
 export default function CityServicesScreen({ navigation }) {
